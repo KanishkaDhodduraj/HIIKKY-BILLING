@@ -1,15 +1,22 @@
 package com.hiikky.database;
+import java.sql.Connection;
 
 public class DBManager {
     private DBManager() {
 
     }
 
-    public void initialize() {
+    public static void initialize() {
 
         System.out.println("Initializing database");
 
-        DBConnection.getConnection();
+        Connection connection = DBConnection.getConnection();
+
+        if(connection != null) {
+            System.out.println("DB Ready");
+        } else {
+            System.out.println("Initialization Failed");
+        }
 
     }
 }
