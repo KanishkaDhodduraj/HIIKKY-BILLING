@@ -100,4 +100,26 @@ public class OrganizationMenu {
             System.out.println("Failed to update");
         }
     }
+
+    public void deleteOrganization() {
+        System.out.println("DELETE ORGANIZATION");
+
+        System.out.println("Enter Organization ID:");
+        int organizationId = Integer.parseInt(sc.nextLine());
+
+        System.out.println("Are You sure to delete the organization : (Y/N) ");
+        String choice = sc.nextLine();
+
+        if (!choice.equalsIgnoreCase("Y")) {
+            System.out.println("Deletion Cancelled!");
+            return;
+        }
+
+        boolean result = organizationService.deleteOrganization(organizationId);
+        if (result) {
+            System.out.println("Organization Deleted Successfully!");
+        } else {
+            System.out.println("Failed to Delete");
+        }
+    }
 }

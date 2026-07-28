@@ -62,4 +62,13 @@ public class OrganizationService {
         return organizationDAO.updateOrganization(organization);
     }
 
+    public boolean deleteOrganization(int organizationId){
+
+        if(organizationId <= 0) {
+            System.out.println("Invalid");
+            return false;
+        }
+        return organizationDAO.deleteOrganization(organizationId);
+    }
+
 }

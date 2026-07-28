@@ -125,4 +125,24 @@ public class OrganizationDAO {
             return false;
         }
     }
+
+    public boolean deleteOrganization(int organizationId) {
+
+        String sql ="DELETE FROM organizations WHERE organization_id = ?";
+
+        try (
+                Connection con = DBConnection.getConnection();
+                PreparedStatement preparedStatement = con.prepareStatement(sql)
+        ) {
+            preparedStatement.setInt(1, organizationId);
+
+            int row = preparedStatement.executeUpdate();
+
+            return row > 0;
+        } catch (SQLException e) {
+            System.out.println("SQL Exception Occurs");
+            System.out.println(e.getMessage());
+            return false;
+        }
+    }
 }
