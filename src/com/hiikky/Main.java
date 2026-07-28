@@ -13,6 +13,7 @@ public class Main {
             System.out.println("1.Register Organization");
             System.out.println("2.View all Organizations");
             System.out.println("3.Update Oraganizations");
+            System.out.println("4.Delete Organization");
             System.out.println("4.Exit");
 
             System.out.println("Enter your Choice : ");
@@ -29,6 +30,8 @@ public class Main {
                 case 3:
                     organizationMenu.updateOrganizations();
                 case 4:
+                    organizationMenu.deleteOrganization();
+                case 5:
                     System.out.println("Thank You");
                     System.exit(0);
                     break;
