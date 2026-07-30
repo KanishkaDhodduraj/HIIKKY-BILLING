@@ -71,4 +71,13 @@ public class OrganizationService {
         return organizationDAO.deleteOrganization(organizationId);
     }
 
+    public Organization searchOrganizationById(int organizationId){
+
+        if(organizationId <= 0) {
+            System.out.println("Invalid");
+            return null;
+        }
+        return organizationDAO.searchOrganizationById(organizationId);
+    }
+
 }

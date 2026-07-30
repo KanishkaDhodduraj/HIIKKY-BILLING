@@ -128,7 +128,7 @@ public class OrganizationDAO {
 
     public boolean deleteOrganization(int organizationId) {
 
-        String sql ="DELETE FROM organizations WHERE organization_id = ?";
+        String sql = "DELETE FROM organizations WHERE organization_id = ?";
 
         try (
                 Connection con = DBConnection.getConnection();
@@ -144,5 +144,37 @@ public class OrganizationDAO {
             System.out.println(e.getMessage());
             return false;
         }
+    }
+
+    public Organization searchOrganizationById(int organizationId) {
+
+        String sql = "SELECT * FROM organizations WHERE organization_id = ?";
+
+        try (
+                Connection con = DBConnection.getConnection();
+                PreparedStatement preparedStatement = con.prepareStatement(sql)
+        ) {
+            preparedStatement.setInt(1, organizationId);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+
+                Organization organization = new Organization();
+
+                organization.setOrganizationId(resultSet.getInt("organization_id"));
+                organization.setOrganizationName(resultSet.getString("organization_name"));
+                organization.setOrganizationOwner(resultSet.getString("organization_owner"));
+                organization.setEmail(resultSet.getString("email"));
+                organization.setPhone(resultSet.getString("phone"));
+                organization.setAddress(resultSet.getString("address"));
+                organization.setStatus(resultSet.getString("status"));
+
+                return organization;
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+
+        return null;
     }
 }

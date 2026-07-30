@@ -122,4 +122,28 @@ public class OrganizationMenu {
             System.out.println("Failed to Delete");
         }
     }
-}
+    public void searchOrganization() {
+        System.out.println("SEARCH ORGANIZATION");
+
+        System.out.println("Enter Organization ID");
+        int organizationId = Integer.parseInt(sc.nextLine());
+
+        Organization organization = organizationService.searchOrganizationById(organizationId);
+
+        if(organization == null) {
+            System.out.println("Organization not found");
+            return;
+        }
+
+        System.out.println("Organization Details :");
+        System.out.println("ID :" + organization.getOrganizationId());
+        System.out.println("Name :" + organization.getOrganizationName());
+        System.out.println("Organization Owner's Name :" + organization.getOrganizationOwner());
+        System.out.println("Email :" + organization.getEmail());
+        System.out.println("Phone :" + organization.getPhone());
+        System.out.println("Address :" + organization.getAddress());
+        System.out.println("Status :" + organization.getStatus());
+
+    }
+
+    }
