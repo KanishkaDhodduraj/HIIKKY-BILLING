@@ -14,7 +14,8 @@ public class Main {
             System.out.println("2.View all Organizations");
             System.out.println("3.Update Oraganizations");
             System.out.println("4.Delete Organization");
-            System.out.println("4.Exit");
+            System.out.println("5.Search Organization");
+            System.out.println("6.Exit");
 
             System.out.println("Enter your Choice : ");
             int choice = sc.nextInt();
@@ -29,9 +30,14 @@ public class Main {
                     break;
                 case 3:
                     organizationMenu.updateOrganizations();
+                    break;
                 case 4:
                     organizationMenu.deleteOrganization();
+                    break;
                 case 5:
+                    organizationMenu.searchOrganization();
+                    break;
+                case 6:
                     System.out.println("Thank You");
                     System.exit(0);
                     break;
