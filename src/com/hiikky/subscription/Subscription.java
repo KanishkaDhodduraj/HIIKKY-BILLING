@@ -5,19 +5,19 @@ public class Subscription {
         private int subscriptionId;
         private String planName;
         private String description;
-        private int price;
+        private double price;
         private String billingCycle;
         private int maxUsers ;
         private String status;
 
-        public Subscription() {
-        }
+    public Subscription() {
+    }
 
-        public Subscription(
+    public  Subscription(
                 int subscriptionId,
                 String planName,
                 String description,
-                int price,
+                double price,
                 String billingCycle,
                 int maxUsers,
                 String status
@@ -51,15 +51,15 @@ public class Subscription {
             return description;
         }
 
-        public void setDescription() {
+        public void setDescription(String description) {
             this.description = description;
         }
 
-        public int getPrice() {
+        public double getPrice() {
             return price;
         }
 
-        public void setPrice(int price) {
+        public void setPrice(double price) {
             this.price = price;
         }
 
