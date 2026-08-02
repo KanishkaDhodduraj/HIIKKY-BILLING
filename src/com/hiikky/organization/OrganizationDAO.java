@@ -34,7 +34,7 @@ public class OrganizationDAO {
             preparedStatement.setString(3, organization.getEmail());
             preparedStatement.setString(4, organization.getPhone());
             preparedStatement.setString(5, organization.getAddress());
-            preparedStatement.setString(6, organization.getStatus());
+            preparedStatement.setString(6, organization.getStatus().name());
 
             int row = preparedStatement.executeUpdate();
 
@@ -78,7 +78,11 @@ public class OrganizationDAO {
                 organization.setEmail(resultSet.getString("email"));
                 organization.setPhone(resultSet.getString("phone"));
                 organization.setAddress(resultSet.getString("address"));
-                organization.setStatus(resultSet.getString("status"));
+                organization.setStatus(
+                        OrganizationStatus.valueOf(
+                                resultSet.getString("status")
+                        )
+                );
 
                 organizations.add(organization);
             }
@@ -113,7 +117,7 @@ public class OrganizationDAO {
             preparedStatement.setString(3, organization.getEmail());
             preparedStatement.setString(4, organization.getPhone());
             preparedStatement.setString(5, organization.getAddress());
-            preparedStatement.setString(6, organization.getStatus());
+            preparedStatement.setString(6, organization.getStatus().name());
             preparedStatement.setInt(7, organization.getOrganizationId());
 
             int row = preparedStatement.executeUpdate();
@@ -155,21 +159,26 @@ public class OrganizationDAO {
                 PreparedStatement preparedStatement = con.prepareStatement(sql)
         ) {
             preparedStatement.setInt(1, organizationId);
-            ResultSet resultSet = preparedStatement.executeQuery();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
-            if (resultSet.next()) {
+                if (resultSet.next()) {
 
-                Organization organization = new Organization();
+                    Organization organization = new Organization();
 
-                organization.setOrganizationId(resultSet.getInt("organization_id"));
-                organization.setOrganizationName(resultSet.getString("organization_name"));
-                organization.setOrganizationOwner(resultSet.getString("organization_owner"));
-                organization.setEmail(resultSet.getString("email"));
-                organization.setPhone(resultSet.getString("phone"));
-                organization.setAddress(resultSet.getString("address"));
-                organization.setStatus(resultSet.getString("status"));
+                    organization.setOrganizationId(resultSet.getInt("organization_id"));
+                    organization.setOrganizationName(resultSet.getString("organization_name"));
+                    organization.setOrganizationOwner(resultSet.getString("organization_owner"));
+                    organization.setEmail(resultSet.getString("email"));
+                    organization.setPhone(resultSet.getString("phone"));
+                    organization.setAddress(resultSet.getString("address"));
+                    organization.setStatus(
+                            OrganizationStatus.valueOf(
+                                    resultSet.getString("status")
+                            )
+                    );
 
-                return organization;
+                    return organization;
+                }
             }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
