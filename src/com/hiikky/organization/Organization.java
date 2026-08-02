@@ -8,7 +8,7 @@ public class Organization {
     private String email;
     private String phone;
     private String address;
-    private String status;
+    private OrganizationStatus status;
 
     public Organization() {
     }
@@ -20,7 +20,7 @@ public class Organization {
             String email,
             String phone,
             String address,
-            String status
+            OrganizationStatus status
     ) {
         this.organizationId = organizationId;
         this.organizationName = organizationName;
@@ -79,18 +79,36 @@ public class Organization {
         this.address = address;
     }
 
-    public String getStatus() {
+    public OrganizationStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(OrganizationStatus status) {
         this.status = status;
     }
 
 
     @Override
 
-    public String toString(){
-        return "Organization Details { " + ("Oraganization ID : " + organizationId) + ("Oraganization Name : " + organizationName) + ("Organization Owner : " + organizationOwner) + (" Email : " + email ) + ("Phone :" + phone) + ("Address: " + address) + ("Status: " + status) + "}";
+    public String toString() {
+        return """
+                Organization Details :
+                           
+                Organization ID    : %d
+                Organization Name  : %s
+                Owner              : %s
+                Email              : %s
+                Phone              : %s
+                Address            : %s
+                Status             : %s
+                """.formatted(
+                organizationId,
+                organizationName,
+                organizationOwner,
+                email,
+                phone,
+                address,
+                status
+        );
     }
 }

@@ -1,5 +1,4 @@
-package com.hiikky;
-import com.hiikky.organization.OrganizationMenu;
+package com.hiikky.organization;
 import java.util.Scanner;
 
 public class Main {

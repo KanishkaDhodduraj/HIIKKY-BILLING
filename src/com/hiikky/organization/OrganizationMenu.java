@@ -1,7 +1,5 @@
 package com.hiikky.organization;
 import java.util.Scanner;
-import com.hiikky.organization.Organization;
-import com.hiikky.organization.OrganizationDAO;
 import java.util.List;
 
 public class OrganizationMenu {
@@ -34,7 +32,7 @@ public class OrganizationMenu {
         System.out.println("Enter Address : ");
         String address = sc.nextLine();
 
-        Organization organization = new Organization(0, organizationName, organizationOwner, email, phone, address, "ACTIVE");
+        Organization organization = new Organization(0, organizationName, organizationOwner, email, phone, address, OrganizationStatus.ACTIVE);
 
         boolean result = organizationService.registerOrganization(organization);
 
@@ -70,7 +68,15 @@ public class OrganizationMenu {
         System.out.println("UPDATE ORGANIZATION");
 
         System.out.println("Enter Organization ID:");
-        int organizationId = Integer.parseInt(sc.nextLine());
+        int organizationId;
+
+        try {
+            organizationId = Integer.parseInt(sc.nextLine());
+
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Organization ID.");
+            return;
+        }
 
         System.out.println("Enter Organization Name :");
         String organizationName = sc.nextLine();
@@ -88,9 +94,9 @@ public class OrganizationMenu {
         String address = sc.nextLine();
 
         System.out.println("Enter Status (ACTIVE / INACTIVE) :");
-        String status = sc.nextLine();
+        OrganizationStatus status =  OrganizationStatus.valueOf(sc.nextLine().toUpperCase());
 
-        Organization organization = new Organization(organizationId, organizationName, organizationOwner, email, phone, address, "ACTIVE");
+        Organization organization = new Organization(organizationId, organizationName, organizationOwner, email, phone, address, status);
 
         boolean result = organizationService.updateOrganization(organization);
 
@@ -105,7 +111,15 @@ public class OrganizationMenu {
         System.out.println("DELETE ORGANIZATION");
 
         System.out.println("Enter Organization ID:");
-        int organizationId = Integer.parseInt(sc.nextLine());
+        int organizationId;
+
+        try {
+            organizationId = Integer.parseInt(sc.nextLine());
+
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Organization ID.");
+            return;
+        }
 
         System.out.println("Are You sure to delete the organization : (Y/N) ");
         String choice = sc.nextLine();
@@ -126,7 +140,15 @@ public class OrganizationMenu {
         System.out.println("SEARCH ORGANIZATION");
 
         System.out.println("Enter Organization ID");
-        int organizationId = Integer.parseInt(sc.nextLine());
+        int organizationId;
+
+        try {
+            organizationId = Integer.parseInt(sc.nextLine());
+
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Organization ID.");
+            return;
+        }
 
         Organization organization = organizationService.searchOrganizationById(organizationId);
 
