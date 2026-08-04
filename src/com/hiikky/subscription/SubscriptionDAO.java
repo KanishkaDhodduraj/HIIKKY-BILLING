@@ -34,7 +34,7 @@ public class SubscriptionDAO {
             preparedStatement.setDouble(3, subscription.getPrice());
             preparedStatement.setString(4, subscription.getBillingCycle());
             preparedStatement.setInt(5, subscription.getMaxUsers());
-            preparedStatement.setString(6, subscription.getStatus());
+            preparedStatement.setString(6, subscription.getStatus().name());
 
             int row = preparedStatement.executeUpdate();
 
@@ -81,7 +81,10 @@ public class SubscriptionDAO {
                 subscription.setPrice(resultSet.getDouble("price"));
                 subscription.setBillingCycle(resultSet.getString("billing_cycle"));
                 subscription.setMaxUsers(resultSet.getInt("max_users"));
-                subscription.setStatus(resultSet.getString("status"));
+                subscription.setStatus(SubscriptionStatus.valueOf(
+                        resultSet.getString("status")
+                        )
+                );
 
                 subscriptions.add(subscription);
             }
@@ -119,7 +122,7 @@ public class SubscriptionDAO {
             preparedStatement.setDouble(3, subscription.getPrice());
             preparedStatement.setString(4, subscription.getBillingCycle());
             preparedStatement.setInt(5, subscription.getMaxUsers());
-            preparedStatement.setString(6, subscription.getStatus());
+            preparedStatement.setString(6, subscription.getStatus().name());
             preparedStatement.setInt(7, subscription.getSubscriptionId());
 
             int row = preparedStatement.executeUpdate();
@@ -146,11 +149,8 @@ public class SubscriptionDAO {
                 Connection con = DBConnection.getConnection();
                 PreparedStatement preparedStatement = con.prepareStatement(sql)
         ) {
-
             preparedStatement.setInt(1, subscriptionId);
-
             int row = preparedStatement.executeUpdate();
-
             return row > 0;
 
         } catch (SQLException e) {
@@ -165,34 +165,38 @@ public class SubscriptionDAO {
     public Subscription searchSubscriptionById(int subscriptionId) {
 
         String sql = """
-                SELECT *
-                FROM subscriptions
-                WHERE subscription_id = ?
-                """;
+                  SELECT
+                    subscription_id,
+                    plan_name,
+                    description,
+                    price,
+                    billing_cycle,
+                    max_users,
+                    status
+                    FROM subscriptions WHERE subscription_id = ?
+                    """;
 
         try (
                 Connection con = DBConnection.getConnection();
                 PreparedStatement preparedStatement = con.prepareStatement(sql)
         ) {
-
             preparedStatement.setInt(1, subscriptionId);
 
-            ResultSet resultSet = preparedStatement.executeQuery();
+              try(ResultSet resultSet = preparedStatement.executeQuery()){
 
-            if (resultSet.next()) {
+               if(resultSet.next()) {
+                   return new Subscription(
+                           resultSet.getInt("subscription_id"),
+                           resultSet.getString("plan_name"),
+                           resultSet.getString("description"),
+                           resultSet.getDouble("price"),
+                           resultSet.getString("billing_cycle"),
+                           resultSet.getInt("max_users"),
+                           SubscriptionStatus.valueOf(resultSet.getString("status"))
+                   );
+               }
+              }
 
-                Subscription subscription = new Subscription();
-
-                subscription.setSubscriptionId(resultSet.getInt("subscription_id"));
-                subscription.setPlanName(resultSet.getString("plan_name"));
-                subscription.setDescription(resultSet.getString("description"));
-                subscription.setPrice(resultSet.getDouble("price"));
-                subscription.setBillingCycle(resultSet.getString("billing_cycle"));
-                subscription.setMaxUsers(resultSet.getInt("max_users"));
-                subscription.setStatus(resultSet.getString("status"));
-
-                return subscription;
-            }
 
         } catch (SQLException e) {
 

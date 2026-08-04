@@ -1,6 +1,4 @@
 package com.hiikky.subscription;
-import com.hiikky.subscription.SubscriptionMenu;
-import com.hiikky.subscription.Subscription;
 
 import java.util.Scanner;
 
