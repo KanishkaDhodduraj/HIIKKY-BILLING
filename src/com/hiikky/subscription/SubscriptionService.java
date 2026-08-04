@@ -11,6 +11,10 @@ public class SubscriptionService {
     }
 
     public boolean registerSubscription(Subscription subscription) {
+        if (!validateSubscription(subscription)) {
+            return false;
+        }
+
         return subscriptionDAO.saveSubscription(subscription);
     }
 
@@ -19,6 +23,10 @@ public class SubscriptionService {
     }
 
     public boolean updateSubscription(Subscription subscription) {
+        if (!validateSubscription(subscription)) {
+            return false;
+        }
+
         return subscriptionDAO.updateSubscription(subscription);
     }
 
@@ -40,5 +48,48 @@ public class SubscriptionService {
         }
 
         return subscriptionDAO.searchSubscriptionById(subscriptionId);
+    }
+    private boolean validateSubscription(Subscription subscription) {
+
+        if (subscription.getPlanName() == null ||
+                subscription.getPlanName().trim().isEmpty()) {
+
+            System.out.println("Plan Name is required.");
+            return false;
+        }
+
+        if (subscription.getDescription() == null ||
+                subscription.getDescription().trim().isEmpty()) {
+
+            System.out.println("Description is required.");
+            return false;
+        }
+
+        if (subscription.getPrice() <= 0) {
+
+            System.out.println("Price must be greater than 0.");
+            return false;
+        }
+
+        if (subscription.getBillingCycle() == null ||
+                subscription.getBillingCycle().trim().isEmpty()) {
+
+            System.out.println("Billing Cycle is required.");
+            return false;
+        }
+
+        if (subscription.getMaxUsers() <= 0) {
+
+            System.out.println("Maximum Users must be greater than 0.");
+            return false;
+        }
+
+        if (subscription.getStatus() == null) {
+
+            System.out.println("Status is required.");
+            return false;
+        }
+
+        return true;
     }
 }

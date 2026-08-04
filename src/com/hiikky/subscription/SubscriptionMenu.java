@@ -39,8 +39,8 @@ public class SubscriptionMenu {
                 price,
                 billingCycle,
                 maxUsers,
-                "ACTIVE"
-        );
+                SubscriptionStatus.ACTIVE
+         );
 
         boolean result = subscriptionService.registerSubscription(subscription);
 
@@ -78,7 +78,13 @@ public class SubscriptionMenu {
         System.out.println("UPDATE SUBSCRIPTION");
 
         System.out.println("Enter Subscription ID : ");
-        int subscriptionId = Integer.parseInt(sc.nextLine());
+        int subscriptionId;
+        try {
+            subscriptionId = Integer.parseInt(sc.nextLine());
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Organization ID.");
+            return;
+        }
 
         System.out.println("Enter Plan Name : ");
         String planName = sc.nextLine();
@@ -96,7 +102,8 @@ public class SubscriptionMenu {
         int maxUsers = Integer.parseInt(sc.nextLine());
 
         System.out.println("Enter Status (ACTIVE / INACTIVE) : ");
-        String status = sc.nextLine();
+        SubscriptionStatus status =
+                SubscriptionStatus.valueOf(sc.nextLine().toUpperCase());
 
         Subscription subscription = new Subscription(
                 subscriptionId,
