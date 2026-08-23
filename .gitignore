@@ -1,30 +1,178 @@
-### IntelliJ IDEA ###
+# ==========================================
+
+# HIIKKY - Git Ignore
+
+# Java + JDBC + MySQL
+
+# ==========================================
+
+# ------------------------------------------
+
+# IntelliJ IDEA
+
+# ------------------------------------------
+
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IntelliJ generated files
+
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
-.kotlin
 
-### Eclipse ###
-.apt_generated
+# ------------------------------------------
+
+# Java / Build Files
+
+# ------------------------------------------
+
+target/
+build/
+*.class
+*.jar
+*.war
+*.ear
+
+# ------------------------------------------
+
+# Environment & Secrets
+
+# ------------------------------------------
+
+.env
+.env.*
+!.env.example
+
+# ------------------------------------------
+
+# Logs
+
+# ------------------------------------------
+
+*.log
+logs/
+log/
+
+# ------------------------------------------
+
+# Temporary Files
+
+# ------------------------------------------
+
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ------------------------------------------
+
+# Eclipse
+
+# ------------------------------------------
+
 .classpath
-.factorypath
 .project
-.settings
+.settings/
+.factorypath
+.apt_generated/
 .springBeans
-.sts4-cache
+.sts4-cache/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### NetBeans ###
+# ------------------------------------------
+
+# NetBeans
+
+# ------------------------------------------
+
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
+# ------------------------------------------
+
+# VS Code
+
+# ------------------------------------------
+
 .vscode/
 
-### Mac OS ###
+# ------------------------------------------
+
+# Kotlin
+
+# ------------------------------------------
+
+.kotlin/
+
+# ------------------------------------------
+
+# Operating System Files
+
+# ------------------------------------------
+
+# macOS
+
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# Linux
+
+.directory
+.Trash-*
+
+# ------------------------------------------
+
+# Database / Local Development Files
+
+# ------------------------------------------
+
+*.sqlite
+*.sqlite3
+*.db
+
+# ------------------------------------------
+
+# Backup Files
+
+# ------------------------------------------
+
+*.bak
+*.backup
+*.old
+
+# ------------------------------------------
+
+# Node.js (if used for future tooling)
+
+# ------------------------------------------
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ------------------------------------------
+
+# Coverage / Testing
+
+# ------------------------------------------
+
+coverage/
+.test-results/
