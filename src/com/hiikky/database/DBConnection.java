@@ -12,16 +12,22 @@ public class DBConnection {
     }
 
     public static Connection getConnection() {
-
         try {
-            Connection con = DriverManager.getConnection(DatabaseConfig.URL,DatabaseConfig.USERNAME, DatabaseConfig.PASSWORD);
+            Class.forName("com.mysql.cj.jdbc.Driver");
+
+            Connection con = DriverManager.getConnection(
+                    DatabaseConfig.URL,
+                    DatabaseConfig.USERNAME,
+                    DatabaseConfig.PASSWORD
+            );
+
             System.out.println("Database Connected");
             return con;
-        } catch (SQLException e) {
-            System.out.println("DB connection failed.");
-            System.out.println((e.getMessage()));
-            return null;
+
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
 
+        return null;
     }
-}
+        }
