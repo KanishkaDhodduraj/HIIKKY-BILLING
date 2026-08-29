@@ -7,6 +7,7 @@ import com.hiikky.organization.OrganizationService;
 import com.hiikky.organization.Organization;
 import com.hiikky.subscriber.SubscriberMenu;
 import com.hiikky.subscription.SubscriptionMenu;
+import com.hiikky.invoice.InvoiceMenu;
 
 import java.util.Scanner;
 
@@ -117,6 +118,7 @@ public class Main {
             System.out.println("3. Subscription");
             System.out.println("4. Course");
             System.out.println("5. Billing");
+            System.out.println("6. Invoice");
             System.out.println("0. Exit");
 
             System.out.println("----------------------------------------");
@@ -145,6 +147,10 @@ public class Main {
 
                 case "5":
                     openBilling(organizationId);
+                    break;
+
+                case "6":
+                    openInvoice(organizationId);
                     break;
 
                 case "0":
@@ -363,4 +369,19 @@ public class Main {
 
         billingMenu.show(organizationId);
     }
+
+
+    //----------------------------------------------------------------------------------
+    // INVOICE MODULE
+    //----------------------------------------------------------------------------------
+    private static void openInvoice(
+            int organizationId
+    ) {
+
+        InvoiceMenu invoiceMenu =
+                new InvoiceMenu();
+
+        invoiceMenu.show(organizationId);
+    }
+
 }
