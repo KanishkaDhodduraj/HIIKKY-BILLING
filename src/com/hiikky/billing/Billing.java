@@ -1,5 +1,4 @@
 package com.hiikky.billing;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -20,6 +19,10 @@ public class Billing {
     private BillingStatus status;
     private LocalDate paidDate;
 
+    private BigDecimal originalAmount;
+    private int discountId;
+    private BigDecimal discountAmount;
+
     public Billing() {
     }
 
@@ -34,7 +37,10 @@ public class Billing {
             LocalDate dueDate,
             BigDecimal amount,
             BillingStatus status,
-            LocalDate paidDate
+            LocalDate paidDate,
+            BigDecimal originalAmount,
+            int discountId,
+            BigDecimal discountAmount
     ) {
         this.billingId = billingId;
         this.organizationId = organizationId;
@@ -46,7 +52,9 @@ public class Billing {
         this.dueDate = dueDate;
         this.amount = amount;
         this.status = status;
-        this.paidDate = paidDate;
+        this.originalAmount = originalAmount;
+        this.discountId = discountId;
+        this.discountAmount = discountAmount;
     }
 
     public int getBillingId() {
@@ -135,5 +143,30 @@ public class Billing {
 
     public void setPaidDate(LocalDate paidDate) {
         this.paidDate = paidDate;
+    }
+
+
+    public BigDecimal getOriginalAmount() {
+        return originalAmount;
+    }
+
+    public void setOriginalAmount(BigDecimal originalAmount) {
+        this.originalAmount = originalAmount;
+    }
+
+    public int getDiscountId() {
+        return discountId;
+    }
+
+    public void setDiscountId(int discountId) {
+        this.discountId = discountId;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
 }

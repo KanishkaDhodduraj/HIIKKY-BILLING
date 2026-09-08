@@ -8,6 +8,7 @@ import com.hiikky.organization.Organization;
 import com.hiikky.subscriber.SubscriberMenu;
 import com.hiikky.subscription.SubscriptionMenu;
 import com.hiikky.invoice.InvoiceMenu;
+import com.hiikky.discount.DiscountMenu;
 
 import java.util.Scanner;
 
@@ -118,7 +119,8 @@ public class Main {
             System.out.println("3. Subscription");
             System.out.println("4. Course");
             System.out.println("5. Billing");
-            System.out.println("6. Invoice");
+            System.out.println("6. Discount");
+            System.out.println("7. Invoice");
             System.out.println("0. Exit");
 
             System.out.println("----------------------------------------");
@@ -150,6 +152,10 @@ public class Main {
                     break;
 
                 case "6":
+                    openDiscount(organizationId);
+                    break;
+
+                case "7":
                     openInvoice(organizationId);
                     break;
 
@@ -368,6 +374,18 @@ public class Main {
                 new BillingMenu();
 
         billingMenu.show(organizationId);
+    }
+
+    // --------------------------------------------------
+// DISCOUNT MODULE
+// --------------------------------------------------
+
+    private static void openDiscount(int organizationId) {
+
+        DiscountMenu discountMenu =
+                new DiscountMenu();
+
+        discountMenu.show(organizationId);
     }
 
 
