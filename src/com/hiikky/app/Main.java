@@ -10,6 +10,7 @@ import com.hiikky.subscription.SubscriptionMenu;
 import com.hiikky.invoice.InvoiceMenu;
 import com.hiikky.discount.DiscountMenu;
 import com.hiikky.Reports.ReportsMenu;
+import com.hiikky.notifications.NotificationMenu;
 
 import java.util.Scanner;
 
@@ -123,7 +124,9 @@ public class Main {
             System.out.println("6. Discount");
             System.out.println("7. Invoice");
             System.out.println("8. Reports");
+            System.out.println("9. Notifications");
             System.out.println("0. Exit");
+
 
             System.out.println("----------------------------------------");
 
@@ -163,6 +166,11 @@ public class Main {
 
                 case "8":
                     openReports();
+                    break;
+
+                case "9":
+                    NotificationMenu notificationMenu = new NotificationMenu();
+                    notificationMenu.showMenu();
                     break;
 
                 case "0":
@@ -420,4 +428,15 @@ public class Main {
         reportsMenu.showMenu();
     }
 
+
+//-------------------------------------------
+//Notification Module
+//---------------------------------------------
+
+    private static void openNotifications() {
+
+        NotificationMenu notificationMenu = new NotificationMenu();
+        notificationMenu.showMenu();
+
+    }
 }
