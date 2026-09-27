@@ -122,24 +122,6 @@ Provides notification management functionality including:
 - Notification dispatch
 - Dispatch history
 
----
-
-## Course Payment Structure
-
-One of the important features of HIIKKY is flexible payment configuration at the course level.
-
-For example, if a course costs ₹30,000:
-
-```text
-Full Payment
-₹30,000 at once
-
-Installments
-3 × ₹10,000
-
-Both
-The learner can choose between
-Full Payment and Installments
 
 ### Backend
 
@@ -177,15 +159,15 @@ Database (MySQL)
 The project follows a layered architecture where each layer has a single responsibility, making the application modular, maintainable, and scalable.
 
 
-##** Software Requirements
-**
+## Software Requirements
+
 * Java JDK 21+ (or later)
 * IntelliJ IDEA
 * MySQL Server
 * MySQL Connector/J
 * Git
 
-## **Learning Objectives**
+## Learning Objectives
 
 This project is developed to strengthen knowledge in:
 
@@ -200,14 +182,14 @@ This project is developed to strengthen knowledge in:
 * Enterprise Java Development
 * Software Design Principles
 
-##** Development Tools**
+## Development Tools
 IntelliJ IDEA
 MySQL Workbench
 Git
 GitHub
 
 
-##** Development Workflow**
+## Development Workflow
 
 Each module is developed using the following workflow:
 
@@ -222,32 +204,32 @@ Each module is developed using the following workflow:
 
 Developing HIIKKY as an enterprise-level software project to gain practical experience in Java backend development, software architecture, database design.
 
-## **LinkedIn Project Updates**
+## LinkedIn Project Updates
 
 The HIIKKY development journey is also shared through LinkedIn updates.
 
-1. HIIKKY Project Introduction & Product Design
+**1. HIIKKY Project Introduction & Product Design**
 
 This update introduces the evolution of HIIKKY and its product direction.
 
 It covers subscription lifecycle management, billing, invoicing, analytics, discounts, course subscription mapping, notifications, and AI-assisted UI/UX exploration.
 
-View LinkedIn Post : https://lnkd.in/p/g6kwHNK5
+View LinkedIn Post : **https://lnkd.in/p/g6kwHNK5**
 
-2. HIIKKY Backend Development Milestone
+**2. HIIKKY Backend Development Milestone**
 
 This update documents the JDBC integration, Organization module CRUD, Subscription module CRUD, and layered backend architecture.
 
-View LinkedIn Post : https://lnkd.in/p/gjBG7CAx
+View LinkedIn Post : **https://lnkd.in/p/gjBG7CAx**
 
-3. HIIKKY Courses Module
+**3. HIIKKY Courses Module**
 
 This update documents the Courses Module, database integration, flexible payment configuration, full payment, installment payment, and installment scheduling.
 
-View LinkedIn Post : https://lnkd.in/p/g66fSCzb
+View LinkedIn Post : **https://lnkd.in/p/g66fSCzb**
 
-##** HIIKKY Presentation**
+##  HIIKKY Presentation
 
 The HIIKKY project presentation is available in the project documentation.
 
-[View HIIKKY Presentation](docs/project-content/presentations/HIIKKY.pdf)
+[View HIIKKY Presentation] **(docs/project-content/presentations/HIIKKY.pdf)**
