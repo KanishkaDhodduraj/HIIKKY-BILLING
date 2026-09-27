@@ -4,22 +4,142 @@ HIIKKY is a Java-based Subscription and Billing Management System designed speci
 
 ## Project Objective
 
-The objective of HIIKKY is to provide an efficient platform for E-Learning organizations to automate their subscription lifecycle, customer management, invoice generation, and payment tracking while maintaining a clean enterprise-level software architecture.
+The objective of HIIKKY is to provide an organized platform for E-Learning businesses to manage their subscription lifecycle and billing operations.
 
-## Features
+The system is designed around real-world business requirements such as:
 
-* Organization Management
-* Customer Management
-* Authentication & Authorization
-* Subscription Plan Management
-* Billing & Invoice Generation
-* Payment Management
-* Dashboard & Business Analytics
-* Email Notifications
-* Revenue Reports
-* Role-Based Access Control
+- Organization management
+- Subscriber management
+- Subscription management
+- Course management
+- Flexible course payment structures
+- Billing and payment tracking
+- Discount management
+- Invoice management
+- Revenue and business reports
+- Notifications
 
-## Tech Stack
+The project is also being developed to strengthen practical knowledge in Java backend development, database design, layered architecture, and software development practices.
+
+---
+
+## Current Project Status
+
+HIIKKY is being developed module by module.
+
+### Completed Modules
+
+| Module | Status |
+|---|---|
+| Organization | Completed |
+| Subscriber | Completed |
+| Subscription | Completed |
+| Courses | Completed |
+| Billing | Completed |
+| Discounts | Completed |
+| Invoices | Completed |
+| Reports | Completed |
+| Notifications | Completed |
+| Admin | Planned |
+| Dashboard | Planned |
+| Settings | Planned |
+
+The current backend is implemented using Core Java, JDBC, and MySQL.
+
+---
+
+## Core Features
+
+### Organization Management
+
+Manages organization-related information required by the HIIKKY platform.
+
+### Subscriber Management
+
+Manages students, customers, or subscribers associated with organizations.
+
+### Subscription Management
+
+Handles subscription-related information and connects subscribers with their subscription details.
+
+### Course Management
+
+Allows organizations to create and manage courses with:
+
+- Course name
+- Course duration
+- Course fee
+- Full Payment
+- Installment Payment
+- Full Payment + Installments
+- Installment scheduling
+
+### Billing Management
+
+Handles billing information and billing status.
+
+Current billing statuses include:
+
+- Paid
+- Unpaid
+- Overdue
+
+The billing module also supports discount-related calculations.
+
+### Discount Management
+
+Supports discounts that can be associated with billing.
+
+The billing structure supports:
+
+- Original Amount
+- Discount ID
+- Discount Amount
+
+### Invoice Management
+
+Handles invoice-related information for completed payments.
+
+### Reports
+
+Provides business reports related to:
+
+- Revenue
+- Billing
+- Subscriptions
+- Students
+- Courses
+
+### Notifications
+
+Provides notification management functionality including:
+
+- Announcements
+- System Alerts
+- Recipient selection
+- Subject
+- Message
+- Notification dispatch
+- Dispatch history
+
+---
+
+## Course Payment Structure
+
+One of the important features of HIIKKY is flexible payment configuration at the course level.
+
+For example, if a course costs ₹30,000:
+
+```text
+Full Payment
+₹30,000 at once
+
+Installments
+3 × ₹10,000
+
+Both
+The learner can choose between
+Full Payment and Installments
 
 ### Backend
 
@@ -36,16 +156,7 @@ The objective of HIIKKY is to provide an efficient platform for E-Learning organ
 * Git
 * GitHub
 
-### Future Technologies
-
-* Spring Boot
-* REST API
-* React
-* Razorpay Payment Gateway
-* JavaMail (SMTP)
-* JWT Authentication
-
-## Project Architecture
+## **Project Architecture**
 
 ```
 Main
@@ -65,37 +176,16 @@ Database (MySQL)
 
 The project follows a layered architecture where each layer has a single responsibility, making the application modular, maintainable, and scalable.
 
-## Database
 
-Database Name
-
-```
-hiikky_db
-```
-
-## Folder Structure
-
-```
-HIIKKY
-│
-├── src
-│   └── com
-│       └── hiikky
-│         
-├── lib
-│
-└── README.md
-```
-
-## Software Requirements
-
+##** Software Requirements
+**
 * Java JDK 21+ (or later)
 * IntelliJ IDEA
 * MySQL Server
 * MySQL Connector/J
 * Git
 
-## Learning Objectives
+## **Learning Objectives**
 
 This project is developed to strengthen knowledge in:
 
@@ -110,20 +200,14 @@ This project is developed to strengthen knowledge in:
 * Enterprise Java Development
 * Software Design Principles
 
-## Future Enhancements
+##** Development Tools**
+IntelliJ IDEA
+MySQL Workbench
+Git
+GitHub
 
-* Customer Module
-* Subscription Module
-* Invoice Module
-* Payment Gateway Integration
-* Dashboard Analytics
-* Email Notifications
-* Spring Boot Migration
-* REST APIs
-* React Frontend
-* Mobile Application Support
 
-## Development Workflow
+##** Development Workflow**
 
 Each module is developed using the following workflow:
 
@@ -137,3 +221,33 @@ Each module is developed using the following workflow:
 8. Documentation
 
 Developing HIIKKY as an enterprise-level software project to gain practical experience in Java backend development, software architecture, database design.
+
+## **LinkedIn Project Updates**
+
+The HIIKKY development journey is also shared through LinkedIn updates.
+
+1. HIIKKY Project Introduction & Product Design
+
+This update introduces the evolution of HIIKKY and its product direction.
+
+It covers subscription lifecycle management, billing, invoicing, analytics, discounts, course subscription mapping, notifications, and AI-assisted UI/UX exploration.
+
+View LinkedIn Post : https://lnkd.in/p/g6kwHNK5
+
+2. HIIKKY Backend Development Milestone
+
+This update documents the JDBC integration, Organization module CRUD, Subscription module CRUD, and layered backend architecture.
+
+View LinkedIn Post : https://lnkd.in/p/gjBG7CAx
+
+3. HIIKKY Courses Module
+
+This update documents the Courses Module, database integration, flexible payment configuration, full payment, installment payment, and installment scheduling.
+
+View LinkedIn Post : https://lnkd.in/p/g66fSCzb
+
+##** HIIKKY Presentation**
+
+The HIIKKY project presentation is available in the project documentation.
+
+[View HIIKKY Presentation](docs/project-content/presentations/HIIKKY.pdf)
