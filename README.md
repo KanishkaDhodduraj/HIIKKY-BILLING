@@ -2,6 +2,9 @@
 
 HIIKKY is a Java-based Subscription and Billing Management System designed specifically for E-Learning businesses. The application helps organizations manage customers, subscription plans, billing, invoices, payments, and business analytics through a secure and scalable architecture. The project is being developed from scratch using Core Java and JDBC before migrating to Spring Boot and a modern web frontend.
 
+##**DESIGN** 
+https://stitch.withgoogle.com/projects/9420354014919519472
+
 ## Project Objective
 
 The objective of HIIKKY is to provide an efficient platform for E-Learning organizations to automate their subscription lifecycle, customer management, invoice generation, and payment tracking while maintaining a clean enterprise-level software architecture.
