@@ -8,7 +8,7 @@
 		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.hiiikky</groupId>
+	<groupId>com.hiikky</groupId>
 	<artifactId>hiikky-admin-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>

@@ -1,4 +1,4 @@
-package com.hiiikky.admin;
+package com.hiikky.admin;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
