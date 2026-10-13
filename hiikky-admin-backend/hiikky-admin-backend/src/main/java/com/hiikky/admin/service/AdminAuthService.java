@@ -7,6 +7,7 @@ import com.hiikky.admin.model.AdminRole;
 import com.hiikky.admin.repository.AdminAccountRepository;
 import com.hiikky.admin.security.AdminPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -14,7 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -25,16 +26,19 @@ public class AdminAuthService {
     private final AuthenticationManager authenticationManager;
     private final AdminAccountRepository adminAccountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityContextRepository securityContextRepository;
 
     public AdminAuthService(AuthenticationManager authenticationManager,
                             AdminAccountRepository adminAccountRepository,
-                            PasswordEncoder passwordEncoder) {
+                            PasswordEncoder passwordEncoder,
+                            SecurityContextRepository securityContextRepository) {
         this.authenticationManager = authenticationManager;
         this.adminAccountRepository = adminAccountRepository;
         this.passwordEncoder = passwordEncoder;
+        this.securityContextRepository = securityContextRepository;
     }
 
-    public AdminResponse login(LoginRequest loginRequest, HttpServletRequest request) {
+    public AdminResponse login(LoginRequest loginRequest, HttpServletRequest request, HttpServletResponse response) {
         UsernamePasswordAuthenticationToken authRequest =
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword());
 
@@ -44,8 +48,13 @@ public class AdminAuthService {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
 
-        HttpSession session = request.getSession(true);
-        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            request.changeSessionId();
+        } else {
+            request.getSession(true);
+        }
+        securityContextRepository.saveContext(context, request, response);
 
         AdminPrincipal principal = (AdminPrincipal) authentication.getPrincipal();
         AdminAccount account = adminAccountRepository.findByEmail(principal.getUsername())

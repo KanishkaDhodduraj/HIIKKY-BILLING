@@ -20,6 +20,9 @@ public class AdminUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         AdminAccount account = adminAccountRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
+        if (!account.isEnabled()) {
+            throw new org.springframework.security.authentication.DisabledException("Account is disabled");
+        }
         return new AdminPrincipal(account);
     }
 }

@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Authentication failed"));
+                .body(ApiResponse.error("Invalid credentials"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -46,6 +46,12 @@ public class GlobalExceptionHandler {
                 .orElse("Validation failed");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(errorMessage));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("Request could not be processed due to a data conflict"));
     }
 
     @ExceptionHandler(Exception.class)

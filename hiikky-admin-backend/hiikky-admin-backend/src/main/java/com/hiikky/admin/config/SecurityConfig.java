@@ -51,6 +51,14 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .securityContext(context -> context.securityContextRepository(securityContextRepository))
+                .sessionManagement(session -> session
+                        .sessionFixation(fixation -> fixation.changeSessionId())
+                )
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .contentTypeOptions(contentType -> {})
+                        .xssProtection(xss -> {})
+                )
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/api/admin/auth/login").permitAll()

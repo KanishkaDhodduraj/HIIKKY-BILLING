@@ -5,10 +5,12 @@ import com.hiikky.admin.dto.ApiResponse;
 import com.hiikky.admin.dto.LoginRequest;
 import com.hiikky.admin.service.AdminAuthService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,9 +30,10 @@ public class AdminAuthController {
 
     @PostMapping("/auth/login")
     public ResponseEntity<ApiResponse<AdminResponse>> login(@Valid @RequestBody LoginRequest loginRequest,
-                                                            HttpServletRequest request) {
-        AdminResponse response = adminAuthService.login(loginRequest, request);
-        return ResponseEntity.ok(ApiResponse.success("Authentication successful", response));
+                                                            HttpServletRequest request,
+                                                            HttpServletResponse response) {
+        AdminResponse adminResponse = adminAuthService.login(loginRequest, request, response);
+        return ResponseEntity.ok(ApiResponse.success("Authentication successful", adminResponse));
     }
 
     @PostMapping("/auth/logout")
@@ -39,6 +42,7 @@ public class AdminAuthController {
         if (session != null) {
             session.invalidate();
         }
+        SecurityContextHolder.clearContext();
         return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
     }
 
