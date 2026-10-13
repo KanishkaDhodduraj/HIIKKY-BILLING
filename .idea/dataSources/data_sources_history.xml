@@ -1,5 +1,5 @@
 <DataSourcesHistory>
-  <DataSourceFromHistory isRemovedFromProject="true">
+  <DataSourceFromHistory isRemovedFromProject="false">
     <data-source source="LOCAL" name="@localhost" uuid="bf45f4ab-0c19-4eb0-918b-8211fbded838">
       <database-info product="" version="" jdbc-version="" driver-name="" driver-version="" dbms="MYSQL" />
       <driver-ref>mysql.8</driver-ref>

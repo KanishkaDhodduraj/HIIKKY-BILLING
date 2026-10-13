@@ -4,14 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4cc14734-d956-4ff1-b4d2-84d06e863e4a" name="Changes" comment="" />
+    <list default="true" id="4cc14734-d956-4ff1-b4d2-84d06e863e4a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/data_sources_history.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/data_sources_history.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/HIIKKY.iml" beforeDir="false" afterPath="$PROJECT_DIR$/HIIKKY.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ HiikkyApiApplication.java" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="65" />
+    <option name="cachedIndexableFilesCount" value="80" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -23,10 +30,20 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="docs/project-documentation" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/hiikky-admin-backend/hiikky-admin-backend/src/main/resources/application.yaml" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHomeTypeForPersistence" value="WRAPPER" />
+      </MavenGeneralSettings>
+    </option>
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -34,61 +51,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000037919706488" />
-      <entry key="MS500" value="1.1032763585221967" />
-      <entry key="S2" value="2.05709660915241" />
-      <entry key="S5" value="2.9163117804278973" />
-      <entry key="S10" value="3.3837427175279857" />
-      <entry key="S30" value="3.774899703556224" />
-      <entry key="S60" value="3.8847604817355834" />
-      <entry key="M2" value="3.947518706277681" />
-      <entry key="M5" value="5.2796582172891515" />
-      <entry key="M10" value="15.666748274645455" />
-      <entry key="M15" value="33.11996511578743" />
-      <entry key="M30" value="91.82397096850632" />
-      <entry key="H1" value="173.3708642410564" />
-      <entry key="H2" value="247.1979768296168" />
-      <entry key="H4" value="298.12058513922506" />
-      <entry key="D1" value="350.30557651987164" />
-      <entry key="W1" value="360.30149909388473" />
+      <entry key="MS100" value="1.0259522689993275" />
+      <entry key="MS500" value="1.8298740432704887" />
+      <entry key="S2" value="2.6043600872989625" />
+      <entry key="S5" value="2.8311369316155046" />
+      <entry key="S10" value="2.9137647722038285" />
+      <entry key="S30" value="3.2271660831896822" />
+      <entry key="S60" value="5.462611053688509" />
+      <entry key="M2" value="11.169338049535696" />
+      <entry key="M5" value="20.60072874401089" />
+      <entry key="M10" value="30.217154220841746" />
+      <entry key="M15" value="41.76098976955851" />
+      <entry key="M30" value="87.8320235801689" />
+      <entry key="H1" value="174.67687763105707" />
+      <entry key="H2" value="272.82375159898083" />
+      <entry key="H4" value="349.82302057109445" />
+      <entry key="D1" value="435.80749346988716" />
+      <entry key="W1" value="453.0468847989882" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
-      <entry key="S5" value="4.9296117663380167E-144" />
-      <entry key="S10" value="3.6628107134123653E-72" />
-      <entry key="S30" value="3.1692770607800835E-24" />
-      <entry key="S60" value="3.078906994987697E-12" />
-      <entry key="M2" value="3.03806989526547E-6" />
-      <entry key="M5" value="0.012042039973095735" />
-      <entry key="M10" value="0.2011382228298249" />
-      <entry key="M15" value="0.5538284598741517" />
-      <entry key="M30" value="1.7402028950015178" />
-      <entry key="H1" value="3.3604373268202847" />
-      <entry key="H2" value="4.801458286736238" />
-      <entry key="H4" value="5.782591699105967" />
-      <entry key="D1" value="6.778181857243407" />
-      <entry key="W1" value="6.967811452123311" />
+      <entry key="S5" value="4.472200683063546E-301" />
+      <entry key="S10" value="1.1032368480083078E-150" />
+      <entry key="S30" value="2.124442437526432E-50" />
+      <entry key="S60" value="2.520803254146153E-25" />
+      <entry key="M2" value="8.692985425108696E-13" />
+      <entry key="M5" value="2.9062203575238464E-5" />
+      <entry key="M10" value="0.009881180817994231" />
+      <entry key="M15" value="0.074287902216197" />
+      <entry key="M30" value="0.6373401811962299" />
+      <entry key="H1" value="2.0336747965686053" />
+      <entry key="H2" value="3.7352185126752553" />
+      <entry key="H4" value="5.100279248041782" />
+      <entry key="D1" value="6.637814647476298" />
+      <entry key="W1" value="6.94701266852519" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.8950286088692435" />
-      <entry key="MS500" value="1.0798038969829258" />
-      <entry key="S2" value="2.04718969342689" />
-      <entry key="S5" value="2.9108118558917075" />
-      <entry key="S10" value="3.3805667372449477" />
-      <entry key="S30" value="3.7737212735871495" />
-      <entry key="S60" value="3.884154383691561" />
-      <entry key="M2" value="3.9472114939311957" />
-      <entry key="M5" value="5.291196250412913" />
-      <entry key="M10" value="15.865549077234046" />
-      <entry key="M15" value="33.66970619179088" />
-      <entry key="M30" value="93.55782511163025" />
-      <entry key="H1" value="176.7251710154358" />
-      <entry key="H2" value="251.9950518097639" />
-      <entry key="H4" value="303.90053550715254" />
-      <entry key="D1" value="357.08324195679256" />
-      <entry key="W1" value="367.26923469581584" />
+      <entry key="MS100" value="0.970897245153065" />
+      <entry key="MS500" value="1.8114430271226067" />
+      <entry key="S2" value="2.5979863857575087" />
+      <entry key="S5" value="2.828380177332424" />
+      <entry key="S10" value="2.9123485249485515" />
+      <entry key="S30" value="3.226319497194322" />
+      <entry key="S60" value="5.45971828432594" />
+      <entry key="M2" value="11.163974857308833" />
+      <entry key="M5" value="20.595834130899526" />
+      <entry key="M10" value="30.223512665229126" />
+      <entry key="M15" value="41.8320973629841" />
+      <entry key="M30" value="88.46542885351519" />
+      <entry key="H1" value="176.70592178054432" />
+      <entry key="H2" value="276.5550623503381" />
+      <entry key="H4" value="354.92071044305766" />
+      <entry key="D1" value="442.44475747150744" />
+      <entry key="W1" value="459.9938153846217" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -102,28 +119,74 @@
   <component name="ProjectViewState">
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Application.Main.executor": "Run",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "docs/project-documentation",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.jshint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.jshint": "",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "to.speed.mode.migration.done": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.Main.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\D.Kanishka\OneDrive\Desktop\Hiikky\organization-owner-console" />
+      <recent name="C:\Users\D.Kanishka\OneDrive\Desktop\Hiikky\backend" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="DEBUG_JUST_MY_CODE" value="false" />
+      <module name="" />
+      <option name="RUN_TOOL" value="" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="Tox" factoryName="Tox">
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="DEBUG_JUST_MY_CODE" value="false" />
+      <option name="RUN_TOOL" value="" />
+      <method v="2" />
+    </configuration>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
