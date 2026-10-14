@@ -34,4 +34,16 @@ public class AdminAccountResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public static AdminAccountResponse from(com.hiikky.admin.model.AdminAccount account) {
+        if (account == null) return null;
+        return new AdminAccountResponse(
+                account.getId(),
+                account.getEmail(),
+                account.getRole(),
+                account.isEnabled(),
+                account.getCreatedAt(),
+                account.getUpdatedAt()
+        );
+    }
 }

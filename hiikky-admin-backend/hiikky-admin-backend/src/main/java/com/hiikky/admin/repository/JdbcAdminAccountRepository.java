@@ -44,14 +44,37 @@ public class JdbcAdminAccountRepository implements AdminAccountRepository {
     }
 
     @Override
+    public Optional<AdminAccount> findById(Long id) {
+        String sql = "SELECT id, email, password_hash, role, enabled, created_at, updated_at FROM admin_accounts WHERE id = ?";
+        try {
+            AdminAccount account = jdbcTemplate.queryForObject(sql, rowMapper, id);
+            return Optional.ofNullable(account);
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public Optional<AdminAccount> findByEmail(String email) {
-        String sql = "SELECT id, email, password_hash, role, enabled, created_at, updated_at FROM admin_accounts WHERE email = ?";
+        String sql = "SELECT id, email, password_hash, role, enabled, created_at, updated_at FROM admin_accounts WHERE LOWER(email) = LOWER(?)";
         try {
             AdminAccount account = jdbcTemplate.queryForObject(sql, rowMapper, email);
             return Optional.ofNullable(account);
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admin_accounts WHERE LOWER(email) = LOWER(?)", Long.class, email);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean existsByEmailAndIdNot(String email, Long id) {
+        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admin_accounts WHERE LOWER(email) = LOWER(?) AND id <> ?", Long.class, email, id);
+        return count != null && count > 0;
     }
 
     @Override
@@ -92,34 +115,79 @@ public class JdbcAdminAccountRepository implements AdminAccountRepository {
     }
 
     @Override
+    public boolean deleteById(Long id) {
+        int rows = jdbcTemplate.update("DELETE FROM admin_accounts WHERE id = ?", id);
+        return rows > 0;
+    }
+
+    @Override
     public long count() {
         Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admin_accounts", Long.class);
         return count != null ? count : 0L;
     }
 
     @Override
-    public List<AdminAccount> findAll(int offset, int limit, Boolean enabled, AdminRole role) {
-        StringBuilder sql = new StringBuilder("SELECT id, email, password_hash, role, enabled, created_at, updated_at FROM admin_accounts");
-        boolean whereAdded = false;
+    public long countActiveSuperAdmins() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM admin_accounts WHERE role = ? AND enabled = TRUE",
+                Long.class,
+                AdminRole.SUPER_ADMIN.name()
+        );
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public long countWithFilters(Boolean enabled, AdminRole role, String search) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM admin_accounts");
+        java.util.List<Object> params = new java.util.ArrayList<>();
+        java.util.List<String> conditions = new java.util.ArrayList<>();
         if (enabled != null) {
-            sql.append(whereAdded ? " AND" : " WHERE").append(" enabled = ").append(enabled ? "TRUE" : "FALSE");
-            whereAdded = true;
+            conditions.add("enabled = ?");
+            params.add(enabled);
         }
         if (role != null) {
-            sql.append(whereAdded ? " AND" : " WHERE").append(" role = ?");
-            whereAdded = true;
+            conditions.add("role = ?");
+            params.add(role.name());
+        }
+        if (search != null && !search.trim().isEmpty()) {
+            conditions.add("LOWER(email) LIKE ?");
+            params.add("%" + search.trim().toLowerCase() + "%");
+        }
+        if (!conditions.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", conditions));
+        }
+        Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public List<AdminAccount> findAll(int offset, int limit, Boolean enabled, AdminRole role) {
+        return findAll(offset, limit, enabled, role, null);
+    }
+
+    @Override
+    public List<AdminAccount> findAll(int offset, int limit, Boolean enabled, AdminRole role, String search) {
+        StringBuilder sql = new StringBuilder("SELECT id, email, password_hash, role, enabled, created_at, updated_at FROM admin_accounts");
+        java.util.List<Object> params = new java.util.ArrayList<>();
+        java.util.List<String> conditions = new java.util.ArrayList<>();
+        if (enabled != null) {
+            conditions.add("enabled = ?");
+            params.add(enabled);
+        }
+        if (role != null) {
+            conditions.add("role = ?");
+            params.add(role.name());
+        }
+        if (search != null && !search.trim().isEmpty()) {
+            conditions.add("LOWER(email) LIKE ?");
+            params.add("%" + search.trim().toLowerCase() + "%");
+        }
+        if (!conditions.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
         sql.append(" ORDER BY id LIMIT ? OFFSET ?");
-        Object[] params;
-        if (enabled != null && role != null) {
-            params = new Object[]{role.name(), limit, offset};
-        } else if (enabled != null) {
-            params = new Object[]{limit, offset};
-        } else if (role != null) {
-            params = new Object[]{role.name(), limit, offset};
-        } else {
-            params = new Object[]{limit, offset};
-        }
-        return jdbcTemplate.query(sql.toString(), rowMapper, params);
+        params.add(limit);
+        params.add(offset);
+        return jdbcTemplate.query(sql.toString(), rowMapper, params.toArray());
     }
 }
