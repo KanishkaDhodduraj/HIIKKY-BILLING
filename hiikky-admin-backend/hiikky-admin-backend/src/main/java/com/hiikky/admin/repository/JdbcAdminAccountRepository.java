@@ -13,6 +13,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -94,5 +95,31 @@ public class JdbcAdminAccountRepository implements AdminAccountRepository {
     public long count() {
         Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM admin_accounts", Long.class);
         return count != null ? count : 0L;
+    }
+
+    @Override
+    public List<AdminAccount> findAll(int offset, int limit, Boolean enabled, AdminRole role) {
+        StringBuilder sql = new StringBuilder("SELECT id, email, password_hash, role, enabled, created_at, updated_at FROM admin_accounts");
+        boolean whereAdded = false;
+        if (enabled != null) {
+            sql.append(whereAdded ? " AND" : " WHERE").append(" enabled = ").append(enabled ? "TRUE" : "FALSE");
+            whereAdded = true;
+        }
+        if (role != null) {
+            sql.append(whereAdded ? " AND" : " WHERE").append(" role = ?");
+            whereAdded = true;
+        }
+        sql.append(" ORDER BY id LIMIT ? OFFSET ?");
+        Object[] params;
+        if (enabled != null && role != null) {
+            params = new Object[]{role.name(), limit, offset};
+        } else if (enabled != null) {
+            params = new Object[]{limit, offset};
+        } else if (role != null) {
+            params = new Object[]{role.name(), limit, offset};
+        } else {
+            params = new Object[]{limit, offset};
+        }
+        return jdbcTemplate.query(sql.toString(), rowMapper, params);
     }
 }
