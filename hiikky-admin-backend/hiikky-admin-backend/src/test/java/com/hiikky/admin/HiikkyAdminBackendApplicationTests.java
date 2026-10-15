@@ -39,13 +39,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -969,5 +972,116 @@ class HiikkyAdminBackendApplicationTests {
 				(org.springframework.mock.web.MockHttpSession) adminLoginResult.getRequest().getSession();
 		mockMvc.perform(get("/api/admin/notifications").session(adminSession))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void superAdminCanFilterPaginateAndExportDirectoryReportsAsSafeCsv() throws Exception {
+		String marker = "report_" + UUID.randomUUID().toString().replace("-", "");
+		String firstName = marker;
+		String lastName = "Smith, \"Mae\"";
+		String ownerEmail = marker + "@example.com";
+		jdbcTemplate.update(
+				"INSERT INTO business_owners (first_name, last_name, email, phone, status, created_at, updated_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?, ?)",
+				firstName, lastName, ownerEmail, " \t=1+1", "ACTIVE",
+				Timestamp.valueOf(LocalDateTime.of(2024, 4, 1, 12, 0)),
+				Timestamp.valueOf(LocalDateTime.of(2024, 4, 1, 12, 0)));
+		Long ownerId = jdbcTemplate.queryForObject(
+				"SELECT id FROM business_owners WHERE email = ?", Long.class, ownerEmail);
+		String organizationName = marker + ", \"Learning\"\nCenter";
+		jdbcTemplate.update(
+				"INSERT INTO organizations (name, owner_id, email, phone, address, status, created_at, updated_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+				organizationName, ownerId, marker + ".org@example.com", "555-0102",
+				"10, Main \"Street\"\nSuite 2", "ACTIVE",
+				Timestamp.valueOf(LocalDateTime.of(2024, 4, 1, 13, 0)),
+				Timestamp.valueOf(LocalDateTime.of(2024, 4, 1, 13, 0)));
+
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var session = (org.springframework.mock.web.MockHttpSession) loginResult.getRequest().getSession();
+
+		mockMvc.perform(get("/api/admin/reports/business-owners")
+						.session(session)
+						.param("search", marker)
+						.param("status", "ACTIVE")
+						.param("organizationId", jdbcTemplate.queryForObject(
+								"SELECT id FROM organizations WHERE email = ?",
+								Long.class, marker + ".org@example.com").toString())
+						.param("fromDate", "2024-04-01")
+						.param("toDate", "2024-04-01")
+						.param("sortBy", "organizationCount")
+						.param("sortDirection", "DESC")
+						.param("page", "0")
+						.param("size", "1"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Total-Count", "1"))
+				.andExpect(header().string("X-Page-Number", "0"))
+				.andExpect(jsonPath("$.data", hasSize(1)))
+				.andExpect(jsonPath("$.data[0].organizationCount").value(1))
+				.andExpect(jsonPath("$.data[0].passwordHash").doesNotExist());
+
+		mockMvc.perform(get("/api/admin/reports/organizations")
+						.session(session)
+						.param("ownerId", ownerId.toString())
+						.param("fromDate", "2024-04-01")
+						.param("toDate", "2024-04-01"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Total-Count", "1"))
+				.andExpect(jsonPath("$.data[0].name").value(organizationName))
+				.andExpect(jsonPath("$.data[0].ownerName").value(firstName + " " + lastName));
+
+		mockMvc.perform(get("/api/admin/reports/business-owners")
+						.session(session)
+						.param("sortBy", "passwordHash"))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/admin/reports/organizations")
+						.session(session)
+						.param("fromDate", "2024-04-01"))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/admin/reports/business-owners")
+						.param("search", marker))
+				.andExpect(status().isUnauthorized());
+
+		var adminLoginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		mockMvc.perform(get("/api/admin/reports/business-owners")
+						.session((org.springframework.mock.web.MockHttpSession)
+								adminLoginResult.getRequest().getSession()))
+				.andExpect(status().isForbidden());
+
+		var ownerCsv = mockMvc.perform(get("/api/admin/reports/business-owners.csv")
+						.session(session)
+						.param("search", marker))
+				.andExpect(request().asyncStarted())
+				.andReturn();
+		mockMvc.perform(asyncDispatch(ownerCsv))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Content-Disposition",
+						"attachment; filename=\"business-owners-report.csv\""))
+				.andExpect(header().string("Cache-Control", "no-store"))
+				.andExpect(content().contentType("text/csv;charset=UTF-8"))
+				.andExpect(content().string(containsString("\"Smith, \"\"Mae\"\"\"")))
+				.andExpect(content().string(containsString("\"' \t=1+1\"")));
+
+		var organizationCsv = mockMvc.perform(get("/api/admin/reports/organizations.csv")
+						.session(session)
+						.param("search", marker))
+				.andExpect(request().asyncStarted())
+				.andReturn();
+		mockMvc.perform(asyncDispatch(organizationCsv))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString("\"" + marker + ", \"\"Learning\"\"\nCenter\"")))
+				.andExpect(content().string(containsString("\"10, Main \"\"Street\"\"\nSuite 2\"")));
 	}
 }

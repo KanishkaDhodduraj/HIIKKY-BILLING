@@ -91,6 +91,25 @@ Filters combine with AND; search matches either subject or message. Dates must b
 
 The legacy model has no read/unread fields, Admin recipient ownership, or verified delivery service. Therefore read-state changes, bulk-read, composing/dispatching, and billing notification access are not implemented.
 
+## Admin directory reports and CSV exports (Super Admin only)
+
+These reports cover only the platform's existing Business Owner and Organization directory records. They are not financial reports or a replacement for Dashboard/Analytics; no owner billing amounts are counted as platform revenue.
+
+| Method and path | Purpose / input |
+| --- | --- |
+| `GET /reports/business-owners` | Paginated owner directory report. Query: `page=0`, `size=20` (1..100), `status?` (`ACTIVE`/`INACTIVE`), `organizationId?` (positive ID), `search?` (maximum 200 characters), `fromDate?`, `toDate?`, `sortBy=id`, `sortDirection=ASC`. |
+| `GET /reports/organizations` | Paginated organization directory report. Query: `page=0`, `size=20` (1..100), `status?` (`ACTIVE`/`INACTIVE`), `ownerId?` (positive ID), `search?` (maximum 200 characters), `fromDate?`, `toDate?`, `sortBy=id`, `sortDirection=ASC`. |
+| `GET /reports/business-owners.csv` | CSV export of all matching owner report rows. Uses the same filters and sorting as the JSON endpoint; no pagination is applied. |
+| `GET /reports/organizations.csv` | CSV export of all matching organization report rows. Uses the same filters and sorting as the JSON endpoint; no pagination is applied. |
+
+For JSON lists, `page` is zero-based, `size` is 1..100, and `X-Total-Count`, `X-Page-Number`, and `X-Page-Size` give the matching total and page metadata. JSON `data` is an array; empty matches return `[]` and total `0`. Supported owner sorting is `id`, `firstName`, `lastName`, `email`, `status`, `organizationCount`, `createdAt`, and `updatedAt`; organization sorting is `id`, `name`, `status`, `createdAt`, and `updatedAt`. Sort direction is `ASC` or `DESC`; ties use `id ASC`.
+
+Search is a case-insensitive partial match across owner first name, last name, email, and phone, or organization name, email, and phone. Search fields are ORed; status, relationship, and date filters combine with search using AND. `fromDate` and `toDate` are optional as a pair, must be ISO `yyyy-MM-dd`, and must be ordered. Both bounds are inclusive calendar dates against the record's `created_at` timestamp in the database-session timezone. Invalid enum values, nonpositive relationship IDs, unsupported sort fields/directions, search over 200 characters, negative pages, invalid sizes, or incomplete/reversed date ranges return HTTP 400.
+
+Owner JSON rows contain `id`, `firstName`, `lastName`, `email`, `phone`, `status`, `organizationCount`, `createdAt`, and `updatedAt`. `organizationCount` is a correlated count of organizations whose `owner_id` equals that owner's ID, so report joins cannot multiply owners. Organization JSON rows contain `id`, `name`, `ownerId`, `ownerName`, `ownerEmail`, `email`, `phone`, `address`, `status`, `createdAt`, and `updatedAt`. Owner fields are null when the organization is unassigned or its owner is absent.
+
+These values come from `business_owners` and `organizations`; relationship filters use `organizations.owner_id`, and date filters use each primary record's `created_at`. No account credentials or password hashes are selected. The CSV endpoints return UTF-8 `text/csv` with attachment filenames `business-owners-report.csv` and `organizations-report.csv`, respectively, and `Cache-Control: no-store`. Every cell is quoted and embedded quotes are doubled; formula prefixes are neutralized with an apostrophe even when preceded by whitespace/control characters. Exports are capped at 10,000 matching rows; larger results return HTTP 413 and require narrower filters. CSV responses do not use the JSON response wrapper.
+
 ## Common errors
 
 * `400`: invalid page/size, invalid enum/date/range, Bean Validation failure, unsupported owner status, or last-Super-Admin protection. Bean errors include e.g. `"fieldErrors":{"email":"Email must be a valid email address"}`.
@@ -98,6 +117,7 @@ The legacy model has no read/unread fields, Admin recipient ownership, or verifi
 * `403`: logged in without required role.
 * `404`: requested owner/organization/admin record or owner/organization association target not found.
 * `409`: duplicate unique email/name or database integrity conflict.
+* `413`: a directory CSV report exceeds the 10,000-row export limit.
 * `500`: unexpected failure; generic message only.
 
 Error example:
@@ -114,4 +134,4 @@ Error example:
 
 ## Not available
 
-No Admin endpoints exist for business requests/approvals, platform revenue, support tickets, notification read-state or sending, separate reports/exports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.
+No Admin endpoints exist for business requests/approvals, platform revenue, support tickets, notification read-state or sending, additional named reports beyond the owner and organization directory reports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.
