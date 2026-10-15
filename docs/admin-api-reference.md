@@ -155,4 +155,4 @@ Error example:
 
 ## Not available
 
-No Admin endpoints exist for platform revenue, support tickets, notification read-state or sending, additional named reports beyond the owner and organization directory reports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.
+No Admin endpoints exist for platform revenue, support tickets, notification read-state or sending, subscriber/subscription/billing reports, or editable Admin settings. The legacy owner-console Java DAOs reference `subscribers`, `subscriptions`, `billing`, and `billing_notifications`, but this repository contains no DDL/migration for those tables and the deployed MySQL schema could not be verified. Those owner-scoped billing records are not treated as Admin reports or platform revenue. Additional reports require verified read-only schema metadata plus approved report purposes, tenant scope, calculations, filters, and export rules. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing requirements.
