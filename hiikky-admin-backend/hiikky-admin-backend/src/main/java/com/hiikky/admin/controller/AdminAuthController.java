@@ -2,6 +2,7 @@ package com.hiikky.admin.controller;
 
 import com.hiikky.admin.dto.AdminResponse;
 import com.hiikky.admin.dto.ApiResponse;
+import com.hiikky.admin.dto.CsrfTokenResponse;
 import com.hiikky.admin.dto.LoginRequest;
 import com.hiikky.admin.dto.UpdateAdminProfileRequest;
 import com.hiikky.admin.security.AdminPrincipal;
@@ -18,6 +19,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,6 +42,13 @@ public class AdminAuthController {
         this.adminAuthService = adminAuthService;
         this.securityContextRepository = securityContextRepository;
         this.adminUserDetailsService = adminUserDetailsService;
+    }
+
+    @GetMapping("/auth/csrf")
+    public ResponseEntity<ApiResponse<CsrfTokenResponse>> csrfToken(CsrfToken csrfToken) {
+        CsrfTokenResponse token = new CsrfTokenResponse(
+                csrfToken.getToken(), csrfToken.getHeaderName(), csrfToken.getParameterName());
+        return ResponseEntity.ok(ApiResponse.success("CSRF token retrieved successfully", token));
     }
 
     @PostMapping("/auth/login")

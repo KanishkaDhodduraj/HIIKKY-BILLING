@@ -6,14 +6,17 @@ Base URL: `/api/admin`. JSON field names are camelCase. All successful responses
 
 | Method and path | Access | Request | Success |
 | --- | --- | --- | --- |
-| `POST /auth/login` | Public | `{email,password}`; email valid, password 6..100 chars | 200 `AdminResponse`; starts session |
+| `GET /auth/csrf` | Public | none | 200 `{token,headerName,parameterName}` and establishes the CSRF-token session |
+| `POST /auth/login` | Public + CSRF token | `{email,password}`; email valid, password 6..100 chars; send token using the returned header name | 200 `AdminResponse`; starts session |
 | `GET /me` | Authenticated | none | 200 `data` is authenticated email string |
 | `GET /profile` | Authenticated | none | 200 `AdminResponse` |
-| `PATCH /profile` | Authenticated | `{currentPassword,email?,newPassword?}`; at least email or password required | 200 updated `AdminResponse`; session principal refreshed |
-| `POST /auth/logout` | Authenticated | none | 200, invalidates session and expires JSESSIONID |
+| `PATCH /profile` | Authenticated + CSRF token | `{currentPassword,email?,newPassword?}`; at least email or password required | 200 updated `AdminResponse`; session principal refreshed |
+| `POST /auth/logout` | Authenticated + CSRF token | none | 200, invalidates session and expires JSESSIONID |
 | `GET /super-admin/dashboard` | Super Admin | none | 200 static legacy placeholder; use `/dashboard` for metrics |
 
-`AdminResponse = {id,email,role,enabled}`. Password hashes are never returned. Login invalid credentials and profile wrong-current-password response: 401. Duplicate email: 409.
+`AdminResponse = {id,email,role,enabled}`. Password hashes are never returned. Login invalid credentials and profile wrong-current-password response: 401. Duplicate email: 409. More than 10 failed login attempts from one remote address within 15 minutes returns 429; successful login clears the failure counter. The throttle does not lock accounts.
+
+For session-authenticated requests, first call `GET /api/admin/auth/csrf`, retain its `JSESSIONID` cookie, then send `data.token` in the header named by `data.headerName` (currently `X-CSRF-TOKEN`) on every state-changing request, including login and logout. Authentication rotates the session ID and invalidates the pre-authentication CSRF token; fetch a new token after login. CSRF rejections return HTTP 403.
 
 ## Dashboard and analytics
 

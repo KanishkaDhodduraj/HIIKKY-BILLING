@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -135,7 +136,7 @@ class AdminAccountControllerTest {
         Mockito.when(adminAccountService.createAdminAccount(Mockito.any(CreateAdminAccountRequest.class)))
                 .thenReturn(resp);
 
-        mockMvc.perform(post("/api/admin/accounts")
+        mockMvc.perform(post("/api/admin/accounts").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
@@ -153,7 +154,7 @@ class AdminAccountControllerTest {
         Mockito.when(adminAccountService.createAdminAccount(Mockito.any(CreateAdminAccountRequest.class)))
                 .thenThrow(new DuplicateResourceException("An admin account with email 'existing@example.com' already exists"));
 
-        mockMvc.perform(post("/api/admin/accounts")
+        mockMvc.perform(post("/api/admin/accounts").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
@@ -171,7 +172,7 @@ class AdminAccountControllerTest {
         Mockito.when(adminAccountService.updateAdminAccount(Mockito.eq(1L), Mockito.any(UpdateAdminAccountRequest.class)))
                 .thenReturn(resp);
 
-        mockMvc.perform(put("/api/admin/accounts/1")
+        mockMvc.perform(put("/api/admin/accounts/1").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
@@ -186,7 +187,7 @@ class AdminAccountControllerTest {
         Mockito.when(adminAccountService.setAccountStatus(1L, false))
                 .thenThrow(new SuperAdminProtectionException("Cannot deactivate the last active SUPER_ADMIN account"));
 
-        mockMvc.perform(patch("/api/admin/accounts/1/deactivate"))
+        mockMvc.perform(patch("/api/admin/accounts/1/deactivate").with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success", is(false)))
                 .andExpect(jsonPath("$.message", containsString("Cannot deactivate the last active SUPER_ADMIN")));
@@ -196,7 +197,7 @@ class AdminAccountControllerTest {
     @DisplayName("Delete account returns 200")
     @WithMockUser(roles = "SUPER_ADMIN")
     void deleteAccountSuccess() throws Exception {
-        mockMvc.perform(delete("/api/admin/accounts/2"))
+        mockMvc.perform(delete("/api/admin/accounts/2").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.message", containsString("deleted")));

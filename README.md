@@ -63,6 +63,12 @@ Recent activity is derived from each record's creation and update timestamps. An
 * **Reports — BLOCKED for Admin reports.** Existing report code is a console menu for organization billing/subscription/student/course aggregates, not a Super Admin reporting contract. The Admin schema contains only accounts, owners, and organizations. Specify which platform reports are required, their source-of-truth data, date/filter/pagination rules, access scope, and export requirements. Dashboard and Analytics remain the supported Admin aggregates; duplicate report endpoints are not added.
 * **Settings — BLOCKED.** There is no persisted Admin settings table or list of settings managed by an Admin. Runtime connection, cookie, and server settings remain deployment configuration and must not be exposed as editable Admin data. Product requirements must identify safe settings, allowed values, persistence, effect timing, and audit needs.
 
+### Admin session security
+
+Session-based mutations require a CSRF token. Before login, call `GET /api/admin/auth/csrf`, preserve the returned session cookie, and send the returned token using its `headerName` (`X-CSRF-TOKEN`) with login and subsequent state-changing requests. Login rotates the session ID and CSRF token; fetch a fresh token after login. Failed logins are throttled after 10 failures from the same remote address in 15 minutes; a successful login clears the counter. This is process-local throttling, not account lockout, and multi-instance deployments need a shared edge or rate-limit store.
+
+The normal application datasource defaults to `jdbc:mysql://localhost:3306/hiikky_db` (overridable through `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD`). Automated tests use the isolated H2 URL in `application-test.yaml`. The live MySQL connection was not verified because database environment variables and a MySQL client are unavailable in this environment.
+
 ## Tech Stack
 
 ### Backend

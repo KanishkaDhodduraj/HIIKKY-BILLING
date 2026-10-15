@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -118,7 +119,7 @@ class BusinessOwnerControllerTest {
 
         Mockito.when(businessOwnerService.createOwner(Mockito.any(CreateBusinessOwnerRequest.class))).thenReturn(resp);
 
-        mockMvc.perform(post("/api/admin/business-owners")
+        mockMvc.perform(post("/api/admin/business-owners").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
@@ -135,7 +136,7 @@ class BusinessOwnerControllerTest {
         Mockito.when(businessOwnerService.createOwner(Mockito.any(CreateBusinessOwnerRequest.class)))
                 .thenThrow(new DuplicateResourceException("A business owner with email 'alice@example.com' already exists"));
 
-        mockMvc.perform(post("/api/admin/business-owners")
+        mockMvc.perform(post("/api/admin/business-owners").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
@@ -149,7 +150,7 @@ class BusinessOwnerControllerTest {
     void createOwnerInvalidEmail() throws Exception {
         CreateBusinessOwnerRequest req = new CreateBusinessOwnerRequest("Alice", "Wonder", "not-an-email", "5551234");
 
-        mockMvc.perform(post("/api/admin/business-owners")
+        mockMvc.perform(post("/api/admin/business-owners").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -173,11 +174,11 @@ class BusinessOwnerControllerTest {
         Mockito.when(businessOwnerService.setOwnerStatus(1L, OwnerStatus.ACTIVE)).thenReturn(activeResp);
         Mockito.when(businessOwnerService.setOwnerStatus(1L, OwnerStatus.INACTIVE)).thenReturn(inactiveResp);
 
-        mockMvc.perform(patch("/api/admin/business-owners/1/activate"))
+        mockMvc.perform(patch("/api/admin/business-owners/1/activate").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("ACTIVE")));
 
-        mockMvc.perform(patch("/api/admin/business-owners/1/deactivate"))
+        mockMvc.perform(patch("/api/admin/business-owners/1/deactivate").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("INACTIVE")));
     }
@@ -186,7 +187,7 @@ class BusinessOwnerControllerTest {
     @DisplayName("Reject unsupported owner status instead of treating it as inactive")
     @WithMockUser(roles = "SUPER_ADMIN")
     void rejectsUnsupportedOwnerStatus() throws Exception {
-        mockMvc.perform(patch("/api/admin/business-owners/1/status")
+        mockMvc.perform(patch("/api/admin/business-owners/1/status").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"PENDING\"}"))
                 .andExpect(status().isBadRequest())
@@ -217,7 +218,7 @@ class BusinessOwnerControllerTest {
     @DisplayName("Delete business owner")
     @WithMockUser(roles = "SUPER_ADMIN")
     void deleteOwnerSuccess() throws Exception {
-        mockMvc.perform(delete("/api/admin/business-owners/1"))
+        mockMvc.perform(delete("/api/admin/business-owners/1").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.message", containsString("deleted")));

@@ -36,6 +36,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Invalid credentials"));
     }
 
+    @ExceptionHandler(LoginRateLimitException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLoginRateLimit(LoginRateLimitException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

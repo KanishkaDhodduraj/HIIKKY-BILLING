@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -101,7 +102,7 @@ class OrganizationControllerTest {
 
         Mockito.when(organizationService.createOrganization(Mockito.any(CreateOrganizationRequest.class))).thenReturn(resp);
 
-        mockMvc.perform(post("/api/admin/organizations")
+        mockMvc.perform(post("/api/admin/organizations").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
@@ -118,7 +119,7 @@ class OrganizationControllerTest {
         Mockito.when(organizationService.createOrganization(Mockito.any(CreateOrganizationRequest.class)))
                 .thenThrow(new DuplicateResourceException("An organization with name 'ExistingOrg' already exists"));
 
-        mockMvc.perform(post("/api/admin/organizations")
+        mockMvc.perform(post("/api/admin/organizations").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
@@ -142,11 +143,11 @@ class OrganizationControllerTest {
         Mockito.when(organizationService.setOrganizationStatus(1L, OrganizationStatus.ACTIVE)).thenReturn(activeResp);
         Mockito.when(organizationService.setOrganizationStatus(1L, OrganizationStatus.INACTIVE)).thenReturn(inactiveResp);
 
-        mockMvc.perform(patch("/api/admin/organizations/1/activate"))
+        mockMvc.perform(patch("/api/admin/organizations/1/activate").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("ACTIVE")));
 
-        mockMvc.perform(patch("/api/admin/organizations/1/deactivate"))
+        mockMvc.perform(patch("/api/admin/organizations/1/deactivate").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("INACTIVE")));
     }
@@ -161,7 +162,7 @@ class OrganizationControllerTest {
         );
         Mockito.when(organizationService.assignOwner(1L, 10L)).thenReturn(resp);
 
-        mockMvc.perform(put("/api/admin/organizations/1/owner/10"))
+        mockMvc.perform(put("/api/admin/organizations/1/owner/10").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.ownerId", is(10)))
@@ -178,7 +179,7 @@ class OrganizationControllerTest {
         );
         Mockito.when(organizationService.removeOwner(1L)).thenReturn(resp);
 
-        mockMvc.perform(delete("/api/admin/organizations/1/owner"))
+        mockMvc.perform(delete("/api/admin/organizations/1/owner").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.ownerId").doesNotExist());
@@ -204,7 +205,7 @@ class OrganizationControllerTest {
     @DisplayName("Delete organization")
     @WithMockUser(roles = "ADMIN")
     void deleteOrganizationSuccess() throws Exception {
-        mockMvc.perform(delete("/api/admin/organizations/1"))
+        mockMvc.perform(delete("/api/admin/organizations/1").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.message", containsString("deleted")));

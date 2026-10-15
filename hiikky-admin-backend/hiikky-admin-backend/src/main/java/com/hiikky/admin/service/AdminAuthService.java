@@ -9,16 +9,19 @@ import com.hiikky.admin.model.AdminAccount;
 import com.hiikky.admin.model.AdminRole;
 import com.hiikky.admin.repository.AdminAccountRepository;
 import com.hiikky.admin.security.AdminPrincipal;
+import com.hiikky.admin.security.LoginAttemptLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 
@@ -31,22 +34,37 @@ public class AdminAuthService {
     private final AdminAccountRepository adminAccountRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityContextRepository securityContextRepository;
+    private final CsrfTokenRepository csrfTokenRepository;
+    private final LoginAttemptLimiter loginAttemptLimiter;
 
     public AdminAuthService(AuthenticationManager authenticationManager,
                             AdminAccountRepository adminAccountRepository,
                             PasswordEncoder passwordEncoder,
-                            SecurityContextRepository securityContextRepository) {
+                            SecurityContextRepository securityContextRepository,
+                            CsrfTokenRepository csrfTokenRepository,
+                            LoginAttemptLimiter loginAttemptLimiter) {
         this.authenticationManager = authenticationManager;
         this.adminAccountRepository = adminAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.securityContextRepository = securityContextRepository;
+        this.csrfTokenRepository = csrfTokenRepository;
+        this.loginAttemptLimiter = loginAttemptLimiter;
     }
 
     public AdminResponse login(LoginRequest loginRequest, HttpServletRequest request, HttpServletResponse response) {
+        String remoteAddress = request.getRemoteAddr();
+        loginAttemptLimiter.checkAllowed(remoteAddress);
         UsernamePasswordAuthenticationToken authRequest =
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword());
 
-        Authentication authentication = authenticationManager.authenticate(authRequest);
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(authRequest);
+        } catch (AuthenticationException exception) {
+            loginAttemptLimiter.recordFailure(remoteAddress);
+            throw exception;
+        }
+        loginAttemptLimiter.recordSuccess(remoteAddress);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -58,6 +76,7 @@ public class AdminAuthService {
         } else {
             request.getSession(true);
         }
+        csrfTokenRepository.saveToken(null, request, response);
         securityContextRepository.saveContext(context, request, response);
 
         AdminPrincipal principal = (AdminPrincipal) authentication.getPrincipal();

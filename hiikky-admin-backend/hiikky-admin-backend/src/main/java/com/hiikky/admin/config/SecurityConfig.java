@@ -13,6 +13,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 
@@ -38,6 +40,11 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CsrfTokenRepository csrfTokenRepository() {
+        return new HttpSessionCsrfTokenRepository();
+    }
+
+    @Bean
     public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(adminUserDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
@@ -47,9 +54,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   SecurityContextRepository securityContextRepository) throws Exception {
+                                                   SecurityContextRepository securityContextRepository,
+                                                   CsrfTokenRepository csrfTokenRepository) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
                 .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .sessionManagement(session -> session
                         .sessionFixation(fixation -> fixation.changeSessionId())
@@ -61,6 +69,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/api/admin/auth/csrf").permitAll()
                         .requestMatchers("/api/admin/auth/login").permitAll()
                         .requestMatchers("/api/admin/super-admin/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/accounts/**").hasRole("SUPER_ADMIN")

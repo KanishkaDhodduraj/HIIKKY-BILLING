@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -119,7 +120,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void loginWithInvalidCredentialsFailsWithGenericMessage() throws Exception {
 		LoginRequest request = new LoginRequest("admin@hiikky.com", "WrongPassword999");
-		mockMvc.perform(post("/api/admin/auth/login")
+		mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isUnauthorized())
@@ -130,7 +131,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void loginWithNonExistentEmailFailsWithGenericMessage() throws Exception {
 		LoginRequest request = new LoginRequest("unknown@hiikky.com", "SomePassword123");
-		mockMvc.perform(post("/api/admin/auth/login")
+		mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isUnauthorized())
@@ -139,9 +140,49 @@ class HiikkyAdminBackendApplicationTests {
 	}
 
 	@Test
+	void repeatedFailedLoginsAreThrottledPerSourceAddressWithoutLockingTheAccount() throws Exception {
+		LoginRequest invalidRequest = new LoginRequest("admin@hiikky.com", "WrongPassword999");
+		for (int attempt = 0; attempt < 10; attempt++) {
+			mockMvc.perform(post("/api/admin/auth/login")
+							.with(csrf())
+							.with(request -> {
+								request.setRemoteAddr("192.0.2.10");
+								return request;
+							})
+							.contentType(MediaType.APPLICATION_JSON)
+							.content(objectMapper.writeValueAsString(invalidRequest)))
+					.andExpect(status().isUnauthorized());
+		}
+
+		mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.with(request -> {
+							request.setRemoteAddr("192.0.2.10");
+							return request;
+						})
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isTooManyRequests())
+				.andExpect(jsonPath("$.message").value(
+						"Too many failed login attempts. Please try again later."));
+
+		mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.with(request -> {
+							request.setRemoteAddr("192.0.2.11");
+							return request;
+						})
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isOk());
+	}
+
+	@Test
 	void loginWithDisabledAccountFailsWithGenericMessage() throws Exception {
 		LoginRequest request = new LoginRequest("disabled@hiikky.com", "DisabledPassword123");
-		mockMvc.perform(post("/api/admin/auth/login")
+		mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isUnauthorized())
@@ -166,14 +207,14 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void loginValidationFailsForInvalidEmailAndEmptyPassword() throws Exception {
 		LoginRequest invalidEmailReq = new LoginRequest("not-an-email", "ValidPass123");
-		mockMvc.perform(post("/api/admin/auth/login")
+		mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(invalidEmailReq)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false));
 
 		LoginRequest blankPassReq = new LoginRequest("admin@hiikky.com", "");
-		mockMvc.perform(post("/api/admin/auth/login")
+		mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(blankPassReq)))
 				.andExpect(status().isBadRequest())
@@ -183,7 +224,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void loginWithValidCredentialsSucceedsAndEstablishesSession() throws Exception {
 		LoginRequest request = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -203,12 +244,56 @@ class HiikkyAdminBackendApplicationTests {
 	}
 
 	@Test
+	void csrfEndpointProvidesSessionTokenForLoginAndRotatesItAfterAuthentication() throws Exception {
+		mockMvc.perform(post("/api/admin/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isForbidden());
+
+		var csrfResult = mockMvc.perform(get("/api/admin/auth/csrf"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.headerName").value("X-CSRF-TOKEN"))
+				.andExpect(jsonPath("$.data.token").isNotEmpty())
+				.andReturn();
+		var session = (org.springframework.mock.web.MockHttpSession) csrfResult.getRequest().getSession();
+		String csrfHeader = objectMapper.readTree(csrfResult.getResponse().getContentAsString())
+				.get("data").get("headerName").asText();
+		String anonymousToken = objectMapper.readTree(csrfResult.getResponse().getContentAsString())
+				.get("data").get("token").asText();
+
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.session(session)
+						.header(csrfHeader, anonymousToken)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		session = (org.springframework.mock.web.MockHttpSession) loginResult.getRequest().getSession();
+
+		var authenticatedCsrfResult = mockMvc.perform(get("/api/admin/auth/csrf").session(session))
+				.andExpect(status().isOk())
+				.andReturn();
+		String authenticatedToken = objectMapper
+				.readTree(authenticatedCsrfResult.getResponse().getContentAsString())
+				.get("data").get("token").asText();
+		assertNotEquals(anonymousToken, authenticatedToken,
+				"Authentication must discard the pre-authentication CSRF token");
+
+		mockMvc.perform(post("/api/admin/auth/logout")
+						.session(session)
+						.header(csrfHeader, authenticatedToken))
+				.andExpect(status().isOk());
+	}
+
+	@Test
 	void sessionFixationProtectionChangesSessionIdUponAuthentication() throws Exception {
 		org.springframework.mock.web.MockHttpSession initialSession = new org.springframework.mock.web.MockHttpSession();
 		String originalSessionId = initialSession.getId();
 
 		LoginRequest request = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.session(initialSession)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
@@ -223,7 +308,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void sessionInvalidationAfterLogoutPreventsSubsequentAccess() throws Exception {
 		LoginRequest request = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -232,7 +317,7 @@ class HiikkyAdminBackendApplicationTests {
 		var session = (org.springframework.mock.web.MockHttpSession) loginResult.getRequest().getSession();
 		assertNotNull(session);
 
-		mockMvc.perform(post("/api/admin/auth/logout")
+		mockMvc.perform(post("/api/admin/auth/logout").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
@@ -248,7 +333,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void regularAdminCannotAccessSuperAdminEndpoint() throws Exception {
 		LoginRequest request = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -266,7 +351,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void superAdminCanAccessSuperAdminEndpoint() throws Exception {
 		LoginRequest request = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -291,7 +376,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void superAdminCanListFilterSearchAndPaginateAccounts() throws Exception {
 		LoginRequest request = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -315,7 +400,7 @@ class HiikkyAdminBackendApplicationTests {
 	void accountManagementCrudLifecycleAndSuperAdminProtection() throws Exception {
 		// Log in as Super Admin
 		LoginRequest request = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -325,7 +410,7 @@ class HiikkyAdminBackendApplicationTests {
 		// 1. Create a new Admin Account
 		String uniqueEmail = "tempadmin_" + System.currentTimeMillis() + "@hiikky.com";
 		CreateAdminAccountRequest createReq = new CreateAdminAccountRequest(uniqueEmail, "AdminPass123!", AdminRole.ADMIN);
-		var createResult = mockMvc.perform(post("/api/admin/accounts")
+		var createResult = mockMvc.perform(post("/api/admin/accounts").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(createReq)))
@@ -341,7 +426,7 @@ class HiikkyAdminBackendApplicationTests {
 		long createdId = createNode.get("data").get("id").asLong();
 
 		// 2. Prevent Duplicate Account Creation
-		mockMvc.perform(post("/api/admin/accounts")
+		mockMvc.perform(post("/api/admin/accounts").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(createReq)))
@@ -360,7 +445,7 @@ class HiikkyAdminBackendApplicationTests {
 		// 4. Update Account Details
 		String updatedEmail = "updated_" + System.currentTimeMillis() + "@hiikky.com";
 		UpdateAdminAccountRequest updateReq = new UpdateAdminAccountRequest(updatedEmail, AdminRole.ADMIN, true, null);
-		mockMvc.perform(put("/api/admin/accounts/" + createdId)
+		mockMvc.perform(put("/api/admin/accounts/" + createdId).with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(updateReq)))
@@ -369,13 +454,13 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.data.email").value(updatedEmail));
 
 		// 5. Deactivate Account
-		mockMvc.perform(patch("/api/admin/accounts/" + createdId + "/deactivate")
+		mockMvc.perform(patch("/api/admin/accounts/" + createdId + "/deactivate").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.enabled").value(false));
 
 		// 6. Activate Account
-		mockMvc.perform(patch("/api/admin/accounts/" + createdId + "/activate")
+		mockMvc.perform(patch("/api/admin/accounts/" + createdId + "/activate").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.enabled").value(true));
@@ -385,7 +470,7 @@ class HiikkyAdminBackendApplicationTests {
 		Long superAdminId = superAdminAccount.getId();
 
 		// Attempt deactivating the sole active SUPER_ADMIN -> Must be rejected
-		mockMvc.perform(patch("/api/admin/accounts/" + superAdminId + "/deactivate")
+		mockMvc.perform(patch("/api/admin/accounts/" + superAdminId + "/deactivate").with(csrf())
 						.session(session))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
@@ -393,7 +478,7 @@ class HiikkyAdminBackendApplicationTests {
 
 		// Attempt demoting the sole active SUPER_ADMIN -> Must be rejected
 		UpdateAdminAccountRequest demoteReq = new UpdateAdminAccountRequest(null, AdminRole.ADMIN, null, null);
-		mockMvc.perform(put("/api/admin/accounts/" + superAdminId)
+		mockMvc.perform(put("/api/admin/accounts/" + superAdminId).with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(demoteReq)))
@@ -402,14 +487,14 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.message", containsString("Cannot change role of the last active SUPER_ADMIN")));
 
 		// Attempt deleting the sole active SUPER_ADMIN -> Must be rejected
-		mockMvc.perform(delete("/api/admin/accounts/" + superAdminId)
+		mockMvc.perform(delete("/api/admin/accounts/" + superAdminId).with(csrf())
 						.session(session))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.message", containsString("Cannot delete the last active SUPER_ADMIN")));
 
 		// 8. Delete the temporary created account -> Should succeed
-		mockMvc.perform(delete("/api/admin/accounts/" + createdId)
+		mockMvc.perform(delete("/api/admin/accounts/" + createdId).with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
@@ -423,7 +508,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void regularAdminCannotAccessAccountManagementEndpoints() throws Exception {
 		LoginRequest request = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -439,7 +524,7 @@ class HiikkyAdminBackendApplicationTests {
 
 		// Creating accounts is forbidden for ADMIN
 		CreateAdminAccountRequest createReq = new CreateAdminAccountRequest("test@hiikky.com", "AdminPass123!", AdminRole.ADMIN);
-		mockMvc.perform(post("/api/admin/accounts")
+		mockMvc.perform(post("/api/admin/accounts").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(createReq)))
@@ -449,7 +534,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void businessOwnerLifecycleIntegrationTest() throws Exception {
 		LoginRequest loginReq = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(loginReq)))
 				.andExpect(status().isOk())
@@ -459,7 +544,7 @@ class HiikkyAdminBackendApplicationTests {
 		// 1. Create Business Owner
 		String ownerEmail = "owner_" + System.currentTimeMillis() + "@test.com";
 		CreateBusinessOwnerRequest createReq = new CreateBusinessOwnerRequest("John", "Doe", ownerEmail, "1234567890");
-		var createResult = mockMvc.perform(post("/api/admin/business-owners")
+		var createResult = mockMvc.perform(post("/api/admin/business-owners").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(createReq)))
@@ -472,7 +557,7 @@ class HiikkyAdminBackendApplicationTests {
 		long ownerId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("data").get("id").asLong();
 
 		// 2. Duplicate Email Check
-		mockMvc.perform(post("/api/admin/business-owners")
+		mockMvc.perform(post("/api/admin/business-owners").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(createReq)))
@@ -488,7 +573,7 @@ class HiikkyAdminBackendApplicationTests {
 
 		// 4. Update Owner Details
 		UpdateBusinessOwnerRequest updateReq = new UpdateBusinessOwnerRequest("Johnny", "Doe", null, "9999999999", null);
-		mockMvc.perform(put("/api/admin/business-owners/" + ownerId)
+		mockMvc.perform(put("/api/admin/business-owners/" + ownerId).with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(updateReq)))
@@ -497,12 +582,12 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.data.phone").value("9999999999"));
 
 		// 5. Deactivate & Activate Owner
-		mockMvc.perform(patch("/api/admin/business-owners/" + ownerId + "/deactivate")
+		mockMvc.perform(patch("/api/admin/business-owners/" + ownerId + "/deactivate").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.status").value("INACTIVE"));
 
-		mockMvc.perform(patch("/api/admin/business-owners/" + ownerId + "/activate")
+		mockMvc.perform(patch("/api/admin/business-owners/" + ownerId + "/activate").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.status").value("ACTIVE"));
@@ -519,7 +604,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(header().exists("X-Total-Count"));
 
 		// 7. Delete Owner
-		mockMvc.perform(delete("/api/admin/business-owners/" + ownerId)
+		mockMvc.perform(delete("/api/admin/business-owners/" + ownerId).with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
@@ -532,7 +617,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void organizationAndRelationshipIntegrationTest() throws Exception {
 		LoginRequest loginReq = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(loginReq)))
 				.andExpect(status().isOk())
@@ -542,7 +627,7 @@ class HiikkyAdminBackendApplicationTests {
 		// 1. Create a business owner
 		String owner1Email = "owner1_" + System.currentTimeMillis() + "@test.com";
 		CreateBusinessOwnerRequest owner1Req = new CreateBusinessOwnerRequest("Alice", "Smith", owner1Email, "111");
-		var owner1Res = mockMvc.perform(post("/api/admin/business-owners")
+		var owner1Res = mockMvc.perform(post("/api/admin/business-owners").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(owner1Req)))
@@ -552,7 +637,7 @@ class HiikkyAdminBackendApplicationTests {
 
 		String owner2Email = "owner2_" + System.currentTimeMillis() + "@test.com";
 		CreateBusinessOwnerRequest owner2Req = new CreateBusinessOwnerRequest("Bob", "Jones", owner2Email, "222");
-		var owner2Res = mockMvc.perform(post("/api/admin/business-owners")
+		var owner2Res = mockMvc.perform(post("/api/admin/business-owners").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(owner2Req)))
@@ -564,7 +649,7 @@ class HiikkyAdminBackendApplicationTests {
 		String orgName = "Org_" + System.currentTimeMillis();
 		String orgEmail = "org_" + System.currentTimeMillis() + "@test.com";
 		CreateOrganizationRequest orgReq = new CreateOrganizationRequest(orgName, owner1Id, orgEmail, "555-1234", "101 High St");
-		var orgRes = mockMvc.perform(post("/api/admin/organizations")
+		var orgRes = mockMvc.perform(post("/api/admin/organizations").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(orgReq)))
@@ -591,7 +676,7 @@ class HiikkyAdminBackendApplicationTests {
 
 		// 3. Duplicate checks
 		CreateOrganizationRequest dupNameReq = new CreateOrganizationRequest(orgName, null, "unique_" + System.currentTimeMillis() + "@test.com", null, null);
-		mockMvc.perform(post("/api/admin/organizations")
+		mockMvc.perform(post("/api/admin/organizations").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(dupNameReq)))
@@ -599,7 +684,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.message", containsString("already exists")));
 
 		CreateOrganizationRequest dupEmailReq = new CreateOrganizationRequest("UniqueOrg_" + System.currentTimeMillis(), null, orgEmail, null, null);
-		mockMvc.perform(post("/api/admin/organizations")
+		mockMvc.perform(post("/api/admin/organizations").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(dupEmailReq)))
@@ -621,7 +706,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.data[0].id").value(orgId));
 
 		// 6. Relationship management: Reassign organization to owner2
-		mockMvc.perform(put("/api/admin/organizations/" + orgId + "/owner/" + owner2Id)
+		mockMvc.perform(put("/api/admin/organizations/" + orgId + "/owner/" + owner2Id).with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.ownerId").value(owner2Id))
@@ -635,18 +720,18 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.data.fullName").value("Bob Jones"));
 
 		// 8. Remove owner from organization
-		mockMvc.perform(delete("/api/admin/organizations/" + orgId + "/owner")
+		mockMvc.perform(delete("/api/admin/organizations/" + orgId + "/owner").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.ownerId").doesNotExist());
 
 		// 9. Deactivate & Activate Organization
-		mockMvc.perform(patch("/api/admin/organizations/" + orgId + "/deactivate")
+		mockMvc.perform(patch("/api/admin/organizations/" + orgId + "/deactivate").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.status").value("INACTIVE"));
 
-		mockMvc.perform(patch("/api/admin/organizations/" + orgId + "/activate")
+		mockMvc.perform(patch("/api/admin/organizations/" + orgId + "/activate").with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.status").value("ACTIVE"));
@@ -663,7 +748,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(header().exists("X-Total-Count"));
 
 		// 11. Delete Organization
-		mockMvc.perform(delete("/api/admin/organizations/" + orgId)
+		mockMvc.perform(delete("/api/admin/organizations/" + orgId).with(csrf())
 						.session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
@@ -676,7 +761,7 @@ class HiikkyAdminBackendApplicationTests {
 	@Test
 	void dashboardReportsDatabaseBackedMetricsWithinInclusiveDateRange() throws Exception {
 		LoginRequest loginReq = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(loginReq)))
 				.andExpect(status().isOk())
@@ -685,7 +770,7 @@ class HiikkyAdminBackendApplicationTests {
 
 		String ownerEmail = "dashboard_" + System.currentTimeMillis() + "@test.com";
 		CreateBusinessOwnerRequest createReq = new CreateBusinessOwnerRequest("Dashboard", "Owner", ownerEmail, "123");
-		mockMvc.perform(post("/api/admin/business-owners")
+		mockMvc.perform(post("/api/admin/business-owners").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(createReq)))
@@ -745,7 +830,7 @@ class HiikkyAdminBackendApplicationTests {
 		adminAccountRepository.save(account);
 
 		LoginRequest loginRequest = new LoginRequest(originalEmail, "ProfilePassword123");
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(loginRequest)))
 				.andExpect(status().isOk())
@@ -758,7 +843,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(jsonPath("$.data.role").value("ADMIN"))
 				.andExpect(jsonPath("$.data.passwordHash").doesNotExist());
 
-		mockMvc.perform(patch("/api/admin/profile")
+		mockMvc.perform(patch("/api/admin/profile").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -767,7 +852,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(status().isUnauthorized());
 
 		String changedEmail = "profile_changed_" + System.currentTimeMillis() + "@test.com";
-		mockMvc.perform(patch("/api/admin/profile")
+		mockMvc.perform(patch("/api/admin/profile").with(csrf())
 						.session(session)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(java.util.Map.of(
@@ -783,7 +868,7 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.email").value(changedEmail));
 
-		mockMvc.perform(post("/api/admin/auth/login")
+		mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
 								new LoginRequest(changedEmail, "ChangedPassword456"))))
@@ -813,7 +898,7 @@ class HiikkyAdminBackendApplicationTests {
 				Long.class,
 				marker + " newer");
 
-		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
 								new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123"))))
@@ -874,7 +959,7 @@ class HiikkyAdminBackendApplicationTests {
 						.param("size", "100"))
 				.andExpect(status().isBadRequest());
 
-		var adminLoginResult = mockMvc.perform(post("/api/admin/auth/login")
+		var adminLoginResult = mockMvc.perform(post("/api/admin/auth/login").with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
 								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))

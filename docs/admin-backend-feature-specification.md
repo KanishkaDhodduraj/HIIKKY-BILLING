@@ -6,6 +6,13 @@ This specification describes the Spring Boot API under `hiikky-admin-backend/hii
 
 The Admin API uses cookie-backed Spring Security sessions. Requests other than login and public health/info endpoints require authentication. Business Owner, dashboard, analytics, and account-management endpoints requiring Super Admin access enforce that role. Organization management allows `ADMIN` and `SUPER_ADMIN`.
 
+### Session CSRF and login throttling
+
+* CSRF protection is enabled for all state-changing HTTP methods. `GET /api/admin/auth/csrf` is public and returns the token, required header name (`X-CSRF-TOKEN`), and parameter name in the normal response wrapper. A client must preserve the session cookie and send the token header on login, logout, profile changes, and all other mutations. Login rotates the session ID and deletes the pre-authentication token, so the client fetches a fresh token afterward.
+* Authentication failures are throttled by source IP: 10 failed login attempts per address in a 15-minute window; the next attempt receives HTTP 429 until that window expires. A successful login clears that address's failure count. There is no account-level lockout, so an attacker cannot lock a specific account by targeting its email.
+* The limiter is in-process, bounded to 10,000 tracked addresses, and does not share state across application instances or restarts. Multi-instance deployment needs a shared rate-limit store or trusted edge limiter. Only the servlet remote address is used; forwarding headers are not trusted by the application.
+* Admin account records have no lockout fields. Admin role checks are enforced through both route rules and method security on role-specific controllers; response DTOs omit password hashes. SQL values are parameterized and sort fields are allowlisted. Admin account mutations do not record actor-aware audit history.
+
 ## Shared response and errors
 
 Successful JSON responses use:

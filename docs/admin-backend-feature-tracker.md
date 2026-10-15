@@ -6,7 +6,7 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 
 | Feature | Status | Operations / constraints | Automated coverage |
 | --- | --- | --- | --- |
-| Authentication | DONE | Session login, session-ID rotation, authenticated identity, logout/session invalidation | H2 integration: login, invalid credentials, session fixation, post-logout 401 |
+| Authentication and session security | PARTIALLY IMPLEMENTED | Session login/logout, session-ID rotation, CSRF token bootstrap/enforcement, 10 failed logins per remote address per 15 minutes; limiter is per-process and account lockout is intentionally absent | H2: token bootstrap/rotation, missing-token rejection, logout invalidation, auth failures and IP throttle; unit test for limiter reset/expiry |
 | Profile | DONE | Safe profile read; current-password-protected email/password changes; no role/status changes | H2 integration: safe response, incorrect password, update email/password, relogin |
 | Dashboard | DONE | Live owner/org/admin counts and status splits; date-filtered registrations; bounded paginated recent activity | Dashboard MVC tests; H2 dashboard totals/date/empty activity |
 | Platform analytics | DONE | Registration/latest-update aggregates by day/week/month with paired inclusive dates; database-session timezone | H2 monthly grouping, date totals, empty-range behavior |
@@ -22,6 +22,7 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 * `organizations`: organization total/status, organization creation (`created_at`), latest update (`updated_at > created_at`).
 * `admin_accounts`: admin total/enabled/disabled, registration and latest update for activity/analytics.
 * `notification`: legacy outgoing dispatch history only (`DISPATCHED`); no recipient-level delivery/read records. The Admin API is read-only and excludes `billing_notifications`.
+* Normal datasource defaults to MySQL `jdbc:mysql://localhost:3306/hiikky_db`; tests use an isolated H2 URL. Live MySQL connectivity and the deployed schema remain unverified: DB environment variables are unset and no MySQL client is installed. H2 results do not establish production compatibility.
 * Dashboard summarizes current totals regardless of date filter; range only affects period counters and recent activity.
 * Analytics aggregates each table separately by date and event category before application grouping; no multi-table join. `DAY`, Monday-starting `WEEK`, and `MONTH` buckets. Dates are interpreted in database-session timezone. Empty analytics has zero summary and no synthetic periods.
 * Recent activity is only latest timestamps on current records, not history or actor-aware auditing. It is paginated (default 20, max 100).
