@@ -18,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.LocalDate;
 
 import com.hiikky.admin.dto.AccountStatusRequest;
 import com.hiikky.admin.dto.CreateAdminAccountRequest;
@@ -439,7 +440,7 @@ class HiikkyAdminBackendApplicationTests {
 
 	@Test
 	void businessOwnerLifecycleIntegrationTest() throws Exception {
-		LoginRequest loginReq = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
+		LoginRequest loginReq = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
 		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(loginReq)))
@@ -522,7 +523,7 @@ class HiikkyAdminBackendApplicationTests {
 
 	@Test
 	void organizationAndRelationshipIntegrationTest() throws Exception {
-		LoginRequest loginReq = new LoginRequest("admin@hiikky.com", "SecureAdminPassword123");
+		LoginRequest loginReq = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
 		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(loginReq)))
@@ -649,5 +650,36 @@ class HiikkyAdminBackendApplicationTests {
 		mockMvc.perform(get("/api/admin/organizations/" + orgId)
 						.session(session))
 				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void dashboardReportsDatabaseBackedMetricsWithinInclusiveDateRange() throws Exception {
+		LoginRequest loginReq = new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123");
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(loginReq)))
+				.andExpect(status().isOk())
+				.andReturn();
+		var session = (org.springframework.mock.web.MockHttpSession) loginResult.getRequest().getSession();
+
+		String ownerEmail = "dashboard_" + System.currentTimeMillis() + "@test.com";
+		CreateBusinessOwnerRequest createReq = new CreateBusinessOwnerRequest("Dashboard", "Owner", ownerEmail, "123");
+		mockMvc.perform(post("/api/admin/business-owners")
+						.session(session)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(createReq)))
+				.andExpect(status().isCreated());
+
+		String today = LocalDate.now().toString();
+		mockMvc.perform(get("/api/admin/dashboard")
+						.session(session)
+						.param("fromDate", today)
+						.param("toDate", today))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.fromDate").value(today))
+				.andExpect(jsonPath("$.data.toDate").value(today))
+				.andExpect(jsonPath("$.data.platformSummary.businessOwnerCount", greaterThanOrEqualTo(1)))
+				.andExpect(jsonPath("$.data.businessOwners.registeredInRange", greaterThanOrEqualTo(1)))
+				.andExpect(jsonPath("$.data.recentActivity[0].displayName").value("Dashboard Owner"));
 	}
 }

@@ -25,6 +25,25 @@ The UI design and visual references for HIIKKY were created using Google Stitch.
 * Revenue Reports
 * Role-Based Access Control
 
+## Admin Dashboard and Account Workflows
+
+The Spring Boot admin API exposes `GET /api/admin/dashboard` to Super Admins. Dashboard metric definitions and filters:
+
+| Metric | Meaning and calculation | Source and date filtering |
+| --- | --- | --- |
+| `platformSummary.businessOwnerCount` | Current number of owner records | `business_owners`; not date-filtered |
+| `platformSummary.organizationCount` | Current number of organization records | `organizations`; not date-filtered |
+| `platformSummary.adminAccountCount` | Number of admin accounts, including disabled accounts | `admin_accounts`; not date-filtered |
+| `businessOwners.total`, `active`, `inactive` | Current owner count and its `ACTIVE`/`INACTIVE` split | `business_owners`; not date-filtered |
+| `businessOwners.registeredInRange` | Number of owner records created in the selected period | `business_owners.created_at`; all-time when dates are omitted |
+| `organizations.total`, `active`, `inactive` | Current organization count and its `ACTIVE`/`INACTIVE` split | `organizations`; not date-filtered |
+| `organizations.createdInRange` | Number of organization records created in the selected period | `organizations.created_at`; all-time when dates are omitted |
+| `recentActivity` | Latest recorded creation or update for each current owner/organization, newest 20 first | `business_owners` and `organizations`; filters on the latest of each record's `created_at`/`updated_at` |
+
+Supply both `fromDate` and `toDate` as ISO dates to filter the period counts and activity. The window includes both dates (from the start of `fromDate` through the end of `toDate`). Supplying only one date is rejected. Current totals/statuses are snapshots and do not change with this date filter. Every request reads the database directly, and an empty activity result is returned as an empty list.
+
+Recent activity is derived from each owner's or organization's `created_at` and `updated_at` timestamps. It represents only the latest recorded change to each current record, not a complete audit history. Revenue, support activity, and business-request metrics are not exposed because the admin schema has no corresponding payment, support, or request tables. The current owner workflow supports `ACTIVE`/`INACTIVE` account status, not registration approval or rejection. Business-owner administration is restricted to Super Admins; no separate business-request workflow exists in the application schema.
+
 ## Tech Stack
 
 ### Backend

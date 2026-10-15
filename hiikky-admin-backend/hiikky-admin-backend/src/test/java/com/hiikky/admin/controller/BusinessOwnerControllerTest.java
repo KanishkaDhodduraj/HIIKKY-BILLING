@@ -50,7 +50,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("Admin can list business owners with pagination and filters")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void listOwnersSuccess() throws Exception {
         BusinessOwnerResponse dummy = new BusinessOwnerResponse(
                 1L, "John", "Doe", "John Doe", "john@example.com", "1234567890",
@@ -75,7 +75,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("View owner details by ID")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void getOwnerByIdSuccess() throws Exception {
         BusinessOwnerResponse dummy = new BusinessOwnerResponse(
                 1L, "Jane", "Smith", "Jane Smith", "jane@example.com", "9876543210",
@@ -92,7 +92,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("View non-existent owner returns 404")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void getOwnerByIdNotFound() throws Exception {
         Mockito.when(businessOwnerService.getOwnerById(99L))
                 .thenThrow(new ResourceNotFoundException("Business owner not found with id: 99"));
@@ -105,7 +105,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("Create business owner returns 201 Created")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void createOwnerSuccess() throws Exception {
         CreateBusinessOwnerRequest req = new CreateBusinessOwnerRequest("Alice", "Wonder", "alice@example.com", "5551234");
         BusinessOwnerResponse resp = new BusinessOwnerResponse(
@@ -125,7 +125,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("Create duplicate business owner returns 409 Conflict")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void createOwnerDuplicate() throws Exception {
         CreateBusinessOwnerRequest req = new CreateBusinessOwnerRequest("Alice", "Wonder", "alice@example.com", "5551234");
 
@@ -142,7 +142,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("Create business owner with invalid email returns 400 Bad Request")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void createOwnerInvalidEmail() throws Exception {
         CreateBusinessOwnerRequest req = new CreateBusinessOwnerRequest("Alice", "Wonder", "not-an-email", "5551234");
 
@@ -155,7 +155,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("Activate and deactivate business owner")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void activateAndDeactivateOwner() throws Exception {
         BusinessOwnerResponse activeResp = new BusinessOwnerResponse(
                 1L, "Alice", "Wonder", "Alice Wonder", "alice@example.com", "5551234",
@@ -180,7 +180,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("View owner organizations")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void getOwnerOrganizations() throws Exception {
         OrganizationResponse org = new OrganizationResponse(
                 5L, "Acme Academy", 1L, "John Doe", "contact@acme.com", "12345", "123 Main St",
@@ -198,7 +198,7 @@ class BusinessOwnerControllerTest {
 
     @Test
     @DisplayName("Delete business owner")
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(roles = "SUPER_ADMIN")
     void deleteOwnerSuccess() throws Exception {
         mockMvc.perform(delete("/api/admin/business-owners/1"))
                 .andExpect(status().isOk())
@@ -206,5 +206,13 @@ class BusinessOwnerControllerTest {
                 .andExpect(jsonPath("$.message", containsString("deleted")));
 
         Mockito.verify(businessOwnerService).deleteOwner(1L);
+    }
+
+    @Test
+    @DisplayName("Regular admin cannot manage business owners")
+    @WithMockUser(roles = "ADMIN")
+    void regularAdminCannotListOwners() throws Exception {
+        mockMvc.perform(get("/api/admin/business-owners"))
+                .andExpect(status().isForbidden());
     }
 }
