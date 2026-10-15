@@ -110,13 +110,34 @@ Owner JSON rows contain `id`, `firstName`, `lastName`, `email`, `phone`, `status
 
 These values come from `business_owners` and `organizations`; relationship filters use `organizations.owner_id`, and date filters use each primary record's `created_at`. No account credentials or password hashes are selected. The CSV endpoints return UTF-8 `text/csv` with attachment filenames `business-owners-report.csv` and `organizations-report.csv`, respectively, and `Cache-Control: no-store`. Every cell is quoted and embedded quotes are doubled; formula prefixes are neutralized with an apostrophe even when preceded by whitespace/control characters. Exports are capped at 10,000 matching rows; larger results return HTTP 413 and require narrower filters. CSV responses do not use the JSON response wrapper.
 
+## Business Requests (Super Admin review; public intake)
+
+Business Requests represent organization registration applications, not Business Owner `ACTIVE`/`INACTIVE` status. The public intake is unauthenticated; session CSRF protection still applies. Obtain a CSRF token from `GET /api/admin/auth/csrf`, retain its cookie, and send the returned token header for submission.
+
+| Method and path | Access | Request / query | Success |
+| --- | --- | --- | --- |
+| `POST /api/organization-registration-applications` | Public + CSRF token | JSON `{firstName,lastName?,ownerEmail,ownerPhone?,organizationName,organizationEmail,organizationPhone?,organizationAddress?}` | 201 `ApiResponse<BusinessRequestSubmissionResponse>` |
+| `GET /api/admin/business-requests` | Super Admin | `page=0`, `size=20` (1..100), `status?` (`PENDING`, `APPROVED`, `REJECTED`), `search?` (max 200), `fromDate?`, `toDate?`, `sortBy=createdAt`, `sortDirection=DESC` | 200 summary array and pagination headers |
+| `GET /api/admin/business-requests/{id}` | Super Admin | Positive request ID | 200 detail, including ordered decision history |
+| `PATCH /api/admin/business-requests/{id}/approve` | Super Admin + CSRF token | No body | 200 approved detail |
+| `PATCH /api/admin/business-requests/{id}/reject` | Super Admin + CSRF token | `{reason}` required, nonblank, max 1000 characters | 200 rejected detail |
+
+Intake fields `firstName`, `ownerEmail`, `organizationName`, and `organizationEmail` are required; names are limited to 100/255 characters as applicable, emails must be valid and at most 255 characters, phone fields are optional (max 50 characters, restricted to `+0-9() .-`), and organization address is optional (max 255). Values are trimmed; emails are lowercased. An existing owner email, organization name, or organization email is rejected with 409. A duplicate pending application is identified by the normalized combination of owner email, organization name, and organization email and returns 409. Only pending duplicates are blocked; rejected applications can be submitted again. The pending identity has a database unique constraint to prevent concurrent duplicate submissions.
+
+Admin list search is a case-insensitive partial match over first name, last name, owner email, organization name, and organization email. Search fields are ORed; status and date filters are ANDed with search. Date parameters are paired ISO `yyyy-MM-dd` dates, inclusive by calendar day against `business_requests.created_at` in database-session timezone. Supported sorts are `id`, `createdAt`, and `status`; ties use `id ASC`. `X-Total-Count`, `X-Page-Number`, and `X-Page-Size` report matching totals and pagination. Invalid page/size, search length, sort, status, or date range returns 400.
+
+`BusinessRequestSubmissionResponse = {id,status,submittedAt}`. Summary rows contain `id`, `firstName`, `lastName`, `ownerEmail`, `organizationName`, `organizationEmail`, `status`, `createdAt`, and `decidedAt`. Detail adds `ownerPhone`, `organizationPhone`, `organizationAddress`, `decisionReason`, `decidedByAdminId`, `createdOwnerId`, `createdOrganizationId`, and `history`. Each history item contains `id`, `eventType`, `actorAdminId`, `reason`, `createdOwnerId`, `createdOrganizationId`, and `createdAt`. Status begins at `PENDING`; only a pending request can transition to `APPROVED` or `REJECTED`, and decisions are single-use. A repeated decision returns 409. Rejection requires a reason. Approval atomically creates an ACTIVE Business Owner and an ACTIVE Organization assigned to that owner, then records the decision and history. A current owner/organization uniqueness conflict returns 409 and rolls back the approval. No assignment, email, or notification workflow is implemented.
+
+Public submission is limited to 10 attempts per remote address per 15-minute window (HTTP 429 thereafter). The limiter is process-local and bounded to 10,000 tracked addresses; it is not shared across application instances. Missing IDs return 404, invalid bodies return 400 with `fieldErrors`, unauthenticated Admin review returns 401, and insufficient role returns 403. All JSON responses use the common `ApiResponse` wrapper.
+
 ## Common errors
 
 * `400`: invalid page/size, invalid enum/date/range, Bean Validation failure, unsupported owner status, or last-Super-Admin protection. Bean errors include e.g. `"fieldErrors":{"email":"Email must be a valid email address"}`.
 * `401`: missing/invalid session, invalid login, disabled login, or wrong profile current password.
 * `403`: logged in without required role.
-* `404`: requested owner/organization/admin record or owner/organization association target not found.
-* `409`: duplicate unique email/name or database integrity conflict.
+* `404`: requested owner/organization/admin/business-request record or owner/organization association target not found.
+* `409`: duplicate unique email/name/pending application, invalid Business Request transition, or database integrity conflict.
+* `429`: login or public registration-intake rate limit exceeded.
 * `413`: a directory CSV report exceeds the 10,000-row export limit.
 * `500`: unexpected failure; generic message only.
 
@@ -134,4 +155,4 @@ Error example:
 
 ## Not available
 
-No Admin endpoints exist for business requests/approvals, platform revenue, support tickets, notification read-state or sending, additional named reports beyond the owner and organization directory reports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.
+No Admin endpoints exist for platform revenue, support tickets, notification read-state or sending, additional named reports beyond the owner and organization directory reports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.

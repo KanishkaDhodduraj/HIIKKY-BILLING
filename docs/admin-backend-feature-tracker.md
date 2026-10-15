@@ -15,6 +15,7 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 | Admin accounts | DONE | Super Admin CRUD/list/search/filter/page/status with last-active-Super-Admin protection | MVC tests; H2 account lifecycle/protection |
 | Notification dispatch history | PARTIAL | Super Admin-only read/list/detail of the legacy global dispatch-history table; search/type/recipient/status/date filters, sorting, pagination; no message body in list | H2 filter/search/date/pagination/detail/missing-row and role tests |
 | Directory reports / CSV export | PARTIAL | Super Admin-only Business Owner and Organization directory reports; JSON filters/search/date ranges/sorting/pagination/counts and CSV exports capped at 10,000 rows; no financial or tenant billing calculations | H2 report filtering/pagination/role checks, CSV quoting and formula-safety assertions |
+| Business Requests / organization registration applications | DONE | Public CSRF-protected intake; Super Admin list/search/status/date filter/sort/page/detail/approve/reject; PENDING-only single decision; rejection reason; approval atomically creates an active owner and assigned organization; history stored; duplicate pending identity rejected; process-local public limit | H2 integration: intake, duplicate pending, approval side effects, rejection reason/history, resubmission after rejection, validation, role authorization |
 | API error contract | DONE | Standard wrapper, field-level validation errors, typed parameter errors | MVC validation/error assertions |
 
 ### Dashboard and analytics source map
@@ -23,6 +24,7 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 * `organizations`: organization total/status, organization creation (`created_at`), latest update (`updated_at > created_at`).
 * `admin_accounts`: admin total/enabled/disabled, registration and latest update for activity/analytics.
 * `notification`: legacy outgoing dispatch history only (`DISPATCHED`); no recipient-level delivery/read records. The Admin API is read-only and excludes `billing_notifications`.
+* Business Request workflow: `business_requests` stores normalized intake and decision data; `business_request_history` stores submission/decision events. `pending_identity_hash` is a nullable unique key, cleared at decision so rejected requests may be resubmitted.
 * Directory reports: `business_owners` and `organizations`; owner organization count uses a correlated count over `organizations.owner_id`; organization rows use the nullable `owner_id` relation. Date filters use the primary record's `created_at`, inclusive by day in database-session timezone. No revenue or owner-console billing data is included.
 * Normal datasource defaults to MySQL `jdbc:mysql://localhost:3306/hiikky_db`; tests use an isolated H2 URL. Live MySQL connectivity and the deployed schema remain unverified: DB environment variables are unset and no MySQL client is installed. H2 results do not establish production compatibility.
 * Dashboard summarizes current totals regardless of date filter; range only affects period counters and recent activity.
@@ -33,7 +35,6 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 
 | Module | Status | Verified blocker | Required before implementation |
 | --- | --- | --- | --- |
-| Business Requests | BLOCKED | No request table, registration-intake API, request status, or decision flow in the Admin schema/code | Submission source and fields, duplicate key, states/transitions, approval/rejection effects, rejection reason rules, assignment/notifications, history/audit needs |
 | Platform Revenue | BLOCKED | Admin schema has no platform transaction/settlement ledger, fee/commission rules, or platform recognition source. Owner-console billing is organization invoicing and cannot be assumed to be HIIKKY revenue. | Revenue recognition policy, trusted platform transaction source, successful/failed/refund/fee semantics, currency/timezone, and access requirements |
 | Support Center | BLOCKED | No support ticket, thread/message, assignee, status, or history structure | Ticket intake/identity scope, tenant visibility, lifecycle, assignment/replies, timestamps, permissions, retention/audit |
 | Admin notification read-state/sending | BLOCKED | No read/unread fields, authenticated Admin recipient ownership, or delivery integration. Legacy compose only stores a row marked `DISPATCHED`; status does not prove delivery. `billing_notifications` are tenant billing records. | Delivery/sending semantics, Admin recipient visibility, read-state policy, bulk operation policy, retention |
@@ -41,7 +42,7 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 
 Additional named Admin reports remain BLOCKED until product defines their purpose, source, calculations, filters, authorization, and export requirements. Implemented directory reports are not a substitute for revenue, billing, or analytics reports.
 
-The report/runtime schema inventory is in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/schema.sql`; it creates `admin_accounts`, `business_owners`, `organizations`, and the legacy-compatible `notification` dispatch table. Do not treat the owner-console `ACTIVE`/`INACTIVE` account status as a Business Request approval state.
+The runtime base schema is in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/schema.sql`; additive Flyway migrations are in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/db/migration/`. V1 creates the existing Admin tables for new schemas; V2 adds Business Request and history tables. Existing non-empty schemas baseline at version 1 and receive V2. Do not treat owner `ACTIVE`/`INACTIVE` status as an application state.
 
 ## Frontend action mapping
 
@@ -58,15 +59,16 @@ No Admin frontend implementation is present. Future UI should use existing APIs 
 | Admin accounts search/enabled/role filter/page/details/create/edit/status/delete | Account routes | Table and confirmation behavior; surface last-Super-Admin rejection |
 | Notification dispatch history search/filter/sort/page/detail | `GET /api/admin/notifications` and `GET /api/admin/notifications/{id}` | Open detail to display the message; do not show read/unread or send controls |
 | Business Owner / Organization directory reports | `GET /api/admin/reports/business-owners`, `/organizations` and their `.csv` exports | JSON search/filter/date/sort/page controls; CSV download is a separate action and may return 413 above the row cap |
+| Business registration applications | Public `POST /api/organization-registration-applications`; Super Admin `GET /api/admin/business-requests`, `GET /{id}`, `PATCH /{id}/approve`, `PATCH /{id}/reject` | Form state is client-side; approve/reject confirmation is UI-only; API enforces access, validation and decision rules |
 | Profile | Profile GET/PATCH | Credential field handling and display |
 | Login/logout | Auth POST routes | Navigation and local authenticated state |
 
-Do not add request approval, revenue cards, support queues, notification read/unread or dispatch controls, additional report types, or settings controls until their modules are unblocked.
+Do not add revenue cards, support queues, notification read/unread or dispatch controls, additional report types, or settings controls until their modules are unblocked.
 
 ## Validation run for the current implementation
 
-* `mvnw.cmd test` from `hiikky-admin-backend/hiikky-admin-backend`: 55 tests passed; H2 profile.
-* `git diff --check`: passed before commit `57fde4e`.
-* Pushed commit: `57fde4ebabf61eca93fdc9bb1b757fde654657cb` to `origin/main`.
+* `mvnw.cmd test` from `hiikky-admin-backend/hiikky-admin-backend`: 62 tests passed; H2 profile, including the Business Request workflow.
+* `git diff --check`: passed for the current changes.
+* The live MySQL schema/migration was not verified; this environment's configured database credentials were rejected during prior read-only inspection.
 
 Documentation-specific status and future changes should be updated alongside the feature's tests and implementation.

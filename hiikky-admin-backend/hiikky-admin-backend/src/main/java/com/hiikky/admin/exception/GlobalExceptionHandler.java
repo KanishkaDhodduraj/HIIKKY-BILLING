@@ -42,6 +42,19 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(PublicSubmissionRateLimitException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePublicSubmissionRateLimit(PublicSubmissionRateLimitException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidBusinessRequestTransitionException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidBusinessRequestTransition(
+            InvalidBusinessRequestTransitionException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(ReportExportLimitException.class)
     public ResponseEntity<ApiResponse<Void>> handleReportExportLimit(ReportExportLimitException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)

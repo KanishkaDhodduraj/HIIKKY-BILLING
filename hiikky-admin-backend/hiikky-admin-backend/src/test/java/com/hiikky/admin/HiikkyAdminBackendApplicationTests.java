@@ -25,6 +25,8 @@ import java.sql.Timestamp;
 import java.util.UUID;
 
 import com.hiikky.admin.dto.AccountStatusRequest;
+import com.hiikky.admin.dto.BusinessRequestRejection;
+import com.hiikky.admin.dto.BusinessRequestSubmission;
 import com.hiikky.admin.dto.CreateAdminAccountRequest;
 import com.hiikky.admin.dto.CreateBusinessOwnerRequest;
 import com.hiikky.admin.dto.CreateOrganizationRequest;
@@ -1083,5 +1085,167 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(content().string(containsString("\"" + marker + ", \"\"Learning\"\"\nCenter\"")))
 				.andExpect(content().string(containsString("\"10, Main \"\"Street\"\"\nSuite 2\"")));
+	}
+
+	@Test
+	void publicBusinessRequestCanBeReviewedAndApprovalCreatesOwnerAndOrganizationAtomically() throws Exception {
+		String marker = "request_" + UUID.randomUUID().toString().replace("-", "");
+		BusinessRequestSubmission submission = new BusinessRequestSubmission(
+				"Request", "Applicant", marker + "@example.com", "555-0123",
+				"Request Academy " + marker, marker + ".org@example.com", "555-0456", "1 Main Street");
+
+		var created = mockMvc.perform(post("/api/organization-registration-applications")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(submission)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.data.status").value("PENDING"))
+				.andReturn();
+		long requestId = objectMapper.readTree(created.getResponse().getContentAsString())
+				.path("data").path("id").asLong();
+
+		mockMvc.perform(post("/api/organization-registration-applications")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(submission)))
+				.andExpect(status().isConflict());
+
+		var adminLogin = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var session = (org.springframework.mock.web.MockHttpSession) adminLogin.getRequest().getSession();
+
+		mockMvc.perform(get("/api/admin/business-requests/" + requestId).session(session))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.status").value("PENDING"))
+				.andExpect(jsonPath("$.data.history", hasSize(1)))
+				.andExpect(jsonPath("$.data.history[0].eventType").value("SUBMITTED"));
+
+		mockMvc.perform(get("/api/admin/business-requests")
+						.session(session)
+						.param("status", "PENDING")
+						.param("search", marker)
+						.param("page", "0")
+						.param("size", "10"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Total-Count", "1"))
+				.andExpect(jsonPath("$.data[0].id").value(requestId));
+
+		mockMvc.perform(get("/api/admin/business-requests")
+						.session(session)
+						.param("sortBy", "unsupported"))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/admin/business-requests")
+						.session(session)
+						.param("fromDate", "2026-01-02")
+						.param("toDate", "2026-01-01"))
+				.andExpect(status().isBadRequest());
+
+		mockMvc.perform(patch("/api/admin/business-requests/" + requestId + "/approve")
+						.with(csrf())
+						.session(session))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.status").value("APPROVED"))
+				.andExpect(jsonPath("$.data.createdOwnerId").isNumber())
+				.andExpect(jsonPath("$.data.createdOrganizationId").isNumber())
+				.andExpect(jsonPath("$.data.history", hasSize(2)))
+				.andExpect(jsonPath("$.data.history[1].eventType").value("APPROVED"));
+
+		mockMvc.perform(patch("/api/admin/business-requests/" + requestId + "/approve")
+						.with(csrf())
+						.session(session))
+				.andExpect(status().isConflict());
+
+		mockMvc.perform(get("/api/admin/business-owners")
+						.session(session)
+						.param("search", marker))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data", hasSize(1)));
+		mockMvc.perform(get("/api/admin/organizations")
+						.session(session)
+						.param("search", marker))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data", hasSize(1)));
+	}
+
+	@Test
+	void rejectedBusinessRequestRequiresReasonAndCanBeResubmitted() throws Exception {
+		String marker = "resubmit_" + UUID.randomUUID().toString().replace("-", "");
+		BusinessRequestSubmission submission = new BusinessRequestSubmission(
+				"Retry", null, marker + "@example.com", null,
+				"Retry Academy " + marker, marker + ".org@example.com", null, null);
+		var created = mockMvc.perform(post("/api/organization-registration-applications")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(submission)))
+				.andExpect(status().isCreated())
+				.andReturn();
+		long requestId = objectMapper.readTree(created.getResponse().getContentAsString())
+				.path("data").path("id").asLong();
+
+		var login = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var session = (org.springframework.mock.web.MockHttpSession) login.getRequest().getSession();
+
+		mockMvc.perform(patch("/api/admin/business-requests/" + requestId + "/reject")
+						.with(csrf())
+						.session(session)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(new BusinessRequestRejection(" "))))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(patch("/api/admin/business-requests/" + requestId + "/reject")
+						.with(csrf())
+						.session(session)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new BusinessRequestRejection("Registration details could not be verified"))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.status").value("REJECTED"))
+				.andExpect(jsonPath("$.data.decisionReason")
+						.value("Registration details could not be verified"))
+				.andExpect(jsonPath("$.data.history", hasSize(2)));
+
+		mockMvc.perform(post("/api/organization-registration-applications")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(submission)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.data.status").value("PENDING"));
+	}
+
+	@Test
+	void businessRequestAdminApiRequiresSuperAdminAndSubmissionValidatesFields() throws Exception {
+		mockMvc.perform(get("/api/admin/business-requests"))
+				.andExpect(status().isUnauthorized());
+
+		var adminLogin = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		mockMvc.perform(get("/api/admin/business-requests")
+						.session((org.springframework.mock.web.MockHttpSession)
+								adminLogin.getRequest().getSession()))
+				.andExpect(status().isForbidden());
+
+		BusinessRequestSubmission invalid = new BusinessRequestSubmission(
+				" ", null, "invalid-email", null, " ", "also-invalid", null, null);
+		mockMvc.perform(post("/api/organization-registration-applications")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(invalid)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fieldErrors").exists());
 	}
 }
