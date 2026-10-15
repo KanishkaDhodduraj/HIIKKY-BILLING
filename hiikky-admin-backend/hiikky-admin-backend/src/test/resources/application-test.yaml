@@ -4,6 +4,13 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
+  flyway:
+    enabled: true
+    target: 3
   sql:
     init:
       mode: always
+      schema-locations: classpath:schema.sql,classpath:legacy-report-schema.sql
+admin:
+  bootstrap:
+    secret: test-only-bootstrap-secret-that-is-at-least-32-characters

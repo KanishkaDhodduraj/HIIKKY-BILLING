@@ -20,16 +20,31 @@ CREATE TABLE IF NOT EXISTS business_owners (
 );
 
 CREATE TABLE IF NOT EXISTS organizations (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    owner_id BIGINT,
+    organization_id INT AUTO_INCREMENT PRIMARY KEY,
+    organization_name VARCHAR(255) NOT NULL,
+    organization_owner VARCHAR(100),
     email VARCHAR(255) NOT NULL UNIQUE,
     phone VARCHAR(50),
     address VARCHAR(255),
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_organization_owner FOREIGN KEY (owner_id) REFERENCES business_owners(id) ON DELETE SET NULL
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS organization_business_owners (
+    organization_id INT NOT NULL PRIMARY KEY,
+    business_owner_id BIGINT NOT NULL,
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_org_business_owner_organization
+        FOREIGN KEY (organization_id) REFERENCES organizations(organization_id) ON DELETE CASCADE,
+    CONSTRAINT fk_org_business_owner_owner
+        FOREIGN KEY (business_owner_id) REFERENCES business_owners(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS admin_bootstrap_state (
+    id INT NOT NULL PRIMARY KEY,
+    initialized BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT ck_admin_bootstrap_singleton CHECK (id = 1)
 );
 
 CREATE TABLE IF NOT EXISTS notification (

@@ -170,7 +170,7 @@ public class JdbcBusinessRequestRepository implements BusinessRequestRepository 
 
     @Override
     public boolean existsOrganizationName(String name) {
-        return exists("SELECT COUNT(*) FROM organizations WHERE LOWER(name) = LOWER(?)", name);
+        return exists("SELECT COUNT(*) FROM organizations WHERE LOWER(organization_name) = LOWER(?)", name);
     }
 
     @Override

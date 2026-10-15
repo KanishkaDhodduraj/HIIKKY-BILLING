@@ -161,7 +161,8 @@ public class JdbcBusinessOwnerRepository implements BusinessOwnerRepository {
             params.add(pattern);
         }
         if (organizationId != null) {
-            conditions.add("EXISTS (SELECT 1 FROM organizations o WHERE o.owner_id = business_owners.id AND o.id = ?)");
+            conditions.add("EXISTS (SELECT 1 FROM organization_business_owners link "
+                    + "WHERE link.business_owner_id = business_owners.id AND link.organization_id = ?)");
             params.add(organizationId);
         }
         if (!conditions.isEmpty()) {
@@ -198,7 +199,8 @@ public class JdbcBusinessOwnerRepository implements BusinessOwnerRepository {
             params.add(pattern);
         }
         if (organizationId != null) {
-            conditions.add("EXISTS (SELECT 1 FROM organizations o WHERE o.owner_id = business_owners.id AND o.id = ?)");
+            conditions.add("EXISTS (SELECT 1 FROM organization_business_owners link "
+                    + "WHERE link.business_owner_id = business_owners.id AND link.organization_id = ?)");
             params.add(organizationId);
         }
         if (!conditions.isEmpty()) {

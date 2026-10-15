@@ -14,7 +14,7 @@ CREATE TABLE business_requests (
     decided_by_admin_id BIGINT,
     decided_at TIMESTAMP NULL,
     created_owner_id BIGINT,
-    created_organization_id BIGINT,
+    created_organization_id INT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_business_requests_status
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
@@ -23,7 +23,7 @@ CREATE TABLE business_requests (
     CONSTRAINT fk_business_requests_created_owner
         FOREIGN KEY (created_owner_id) REFERENCES business_owners(id),
     CONSTRAINT fk_business_requests_created_organization
-        FOREIGN KEY (created_organization_id) REFERENCES organizations(id),
+        FOREIGN KEY (created_organization_id) REFERENCES organizations(organization_id),
     INDEX idx_business_requests_status_created (status, created_at),
     INDEX idx_business_requests_created (created_at)
 );
@@ -35,7 +35,7 @@ CREATE TABLE business_request_history (
     actor_admin_id BIGINT,
     reason VARCHAR(1000),
     created_owner_id BIGINT,
-    created_organization_id BIGINT,
+    created_organization_id INT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_business_request_history_event
         CHECK (event_type IN ('SUBMITTED', 'APPROVED', 'REJECTED')),
@@ -46,6 +46,6 @@ CREATE TABLE business_request_history (
     CONSTRAINT fk_business_request_history_owner
         FOREIGN KEY (created_owner_id) REFERENCES business_owners(id),
     CONSTRAINT fk_business_request_history_organization
-        FOREIGN KEY (created_organization_id) REFERENCES organizations(id),
+        FOREIGN KEY (created_organization_id) REFERENCES organizations(organization_id),
     INDEX idx_business_request_history_request (business_request_id, created_at, id)
 );

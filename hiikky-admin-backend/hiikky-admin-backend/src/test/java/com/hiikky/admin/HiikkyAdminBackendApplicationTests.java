@@ -992,12 +992,19 @@ class HiikkyAdminBackendApplicationTests {
 				"SELECT id FROM business_owners WHERE email = ?", Long.class, ownerEmail);
 		String organizationName = marker + ", \"Learning\"\nCenter";
 		jdbcTemplate.update(
-				"INSERT INTO organizations (name, owner_id, email, phone, address, status, created_at, updated_at) "
-						+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-				organizationName, ownerId, marker + ".org@example.com", "555-0102",
+				"INSERT INTO organizations "
+						+ "(organization_name, email, phone, address, status, created_at, updated_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?, ?)",
+				organizationName, marker + ".org@example.com", "555-0102",
 				"10, Main \"Street\"\nSuite 2", "ACTIVE",
 				Timestamp.valueOf(LocalDateTime.of(2024, 4, 1, 13, 0)),
 				Timestamp.valueOf(LocalDateTime.of(2024, 4, 1, 13, 0)));
+		Long organizationId = jdbcTemplate.queryForObject(
+				"SELECT organization_id FROM organizations WHERE email = ?", Long.class,
+				marker + ".org@example.com");
+		jdbcTemplate.update(
+				"INSERT INTO organization_business_owners (organization_id, business_owner_id) VALUES (?, ?)",
+				organizationId, ownerId);
 
 		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
 						.with(csrf())
@@ -1013,7 +1020,7 @@ class HiikkyAdminBackendApplicationTests {
 						.param("search", marker)
 						.param("status", "ACTIVE")
 						.param("organizationId", jdbcTemplate.queryForObject(
-								"SELECT id FROM organizations WHERE email = ?",
+								"SELECT organization_id FROM organizations WHERE email = ?",
 								Long.class, marker + ".org@example.com").toString())
 						.param("fromDate", "2024-04-01")
 						.param("toDate", "2024-04-01")

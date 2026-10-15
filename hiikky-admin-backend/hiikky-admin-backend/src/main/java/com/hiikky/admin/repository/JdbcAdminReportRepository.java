@@ -27,7 +27,8 @@ public class JdbcAdminReportRepository implements AdminReportRepository {
             BusinessOwnerReportCriteria criteria, int limit, int offset) {
         QueryParts query = businessOwnerQuery(criteria);
         String sql = "SELECT b.id, b.first_name, b.last_name, b.email, b.phone, b.status, "
-                + "(SELECT COUNT(*) FROM organizations org_count WHERE org_count.owner_id = b.id) AS organization_count, "
+                + "(SELECT COUNT(*) FROM organization_business_owners org_link "
+                + "WHERE org_link.business_owner_id = b.id) AS organization_count, "
                 + "b.created_at, b.updated_at FROM business_owners b"
                 + query.whereClause()
                 + " ORDER BY " + businessOwnerSortColumn(criteria.sortBy()) + " "
@@ -65,13 +66,16 @@ public class JdbcAdminReportRepository implements AdminReportRepository {
     public List<OrganizationReportRow> findOrganizations(
             OrganizationReportCriteria criteria, int limit, int offset) {
         QueryParts query = organizationQuery(criteria);
-        String sql = "SELECT o.id, o.name, o.owner_id, bo.first_name AS owner_first_name, "
+        String sql = "SELECT o.organization_id AS id, o.organization_name AS name, "
+                + "org_link.business_owner_id AS owner_id, bo.first_name AS owner_first_name, "
                 + "bo.last_name AS owner_last_name, bo.email AS owner_email, o.email, o.phone, o.address, "
                 + "o.status, o.created_at, o.updated_at FROM organizations o "
-                + "LEFT JOIN business_owners bo ON bo.id = o.owner_id"
+                + "LEFT JOIN organization_business_owners org_link "
+                + "ON org_link.organization_id = o.organization_id "
+                + "LEFT JOIN business_owners bo ON bo.id = org_link.business_owner_id"
                 + query.whereClause()
                 + " ORDER BY " + organizationSortColumn(criteria.sortBy()) + " "
-                + criteria.sortDirection().name() + ", o.id ASC LIMIT ? OFFSET ?";
+                + criteria.sortDirection().name() + ", o.organization_id ASC LIMIT ? OFFSET ?";
         List<Object> parameters = new ArrayList<>(query.parameters());
         parameters.add(limit);
         parameters.add(offset);
@@ -101,7 +105,10 @@ public class JdbcAdminReportRepository implements AdminReportRepository {
     public long countOrganizations(OrganizationReportCriteria criteria) {
         QueryParts query = organizationQuery(criteria);
         Long count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM organizations o" + query.whereClause(),
+                "SELECT COUNT(*) FROM organizations o "
+                        + "LEFT JOIN organization_business_owners org_link "
+                        + "ON org_link.organization_id = o.organization_id"
+                        + query.whereClause(),
                 Long.class,
                 query.parameters().toArray());
         return count != null ? count : 0L;
@@ -116,7 +123,9 @@ public class JdbcAdminReportRepository implements AdminReportRepository {
         }
         if (criteria.organizationId() != null) {
             conditions.add("EXISTS (SELECT 1 FROM organizations org_filter "
-                    + "WHERE org_filter.owner_id = b.id AND org_filter.id = ?)");
+                    + "JOIN organization_business_owners org_link "
+                    + "ON org_link.organization_id = org_filter.organization_id "
+                    + "WHERE org_link.business_owner_id = b.id AND org_filter.organization_id = ?)");
             parameters.add(criteria.organizationId());
         }
         addSearch(conditions, parameters, criteria.search(),
@@ -134,11 +143,11 @@ public class JdbcAdminReportRepository implements AdminReportRepository {
             parameters.add(criteria.status().name());
         }
         if (criteria.ownerId() != null) {
-            conditions.add("o.owner_id = ?");
+            conditions.add("org_link.business_owner_id = ?");
             parameters.add(criteria.ownerId());
         }
         addSearch(conditions, parameters, criteria.search(),
-                "LOWER(o.name) LIKE ? OR LOWER(o.email) LIKE ? OR o.phone LIKE ?");
+                "LOWER(o.organization_name) LIKE ? OR LOWER(o.email) LIKE ? OR o.phone LIKE ?");
         addDateRange(conditions, parameters, "o.created_at", criteria.fromDate(), criteria.toDate());
         return new QueryParts(whereClause(conditions), parameters);
     }
@@ -185,8 +194,8 @@ public class JdbcAdminReportRepository implements AdminReportRepository {
 
     private String organizationSortColumn(String sortBy) {
         return switch (sortBy) {
-            case "id" -> "o.id";
-            case "name" -> "o.name";
+            case "id" -> "o.organization_id";
+            case "name" -> "o.organization_name";
             case "status" -> "o.status";
             case "createdAt" -> "o.created_at";
             case "updatedAt" -> "o.updated_at";

@@ -23,7 +23,8 @@ public class JdbcDashboardRepository implements DashboardRepository {
                        CASE WHEN updated_at > created_at THEN updated_at ELSE created_at END AS occurred_at
                 FROM business_owners
                 UNION ALL
-                SELECT 'ORGANIZATION' AS entity_type, id AS entity_id, name AS display_name,
+                SELECT 'ORGANIZATION' AS entity_type,
+                       organization_id AS entity_id, organization_name AS display_name,
                        CASE WHEN updated_at > created_at THEN 'UPDATED' ELSE 'CREATED' END AS activity_type,
                        CASE WHEN updated_at > created_at THEN updated_at ELSE created_at END AS occurred_at
                 FROM organizations

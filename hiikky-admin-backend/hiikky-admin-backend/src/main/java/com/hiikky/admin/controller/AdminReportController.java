@@ -9,6 +9,7 @@ import com.hiikky.admin.model.OrganizationStatus;
 import com.hiikky.admin.model.OwnerStatus;
 import com.hiikky.admin.model.SortDirection;
 import com.hiikky.admin.service.AdminReportService;
+import com.hiikky.admin.util.CsvExportWriter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -218,29 +219,7 @@ public class AdminReportController {
     }
 
     private void writeRow(Writer writer, List<String> values) throws IOException {
-        for (int index = 0; index < values.size(); index++) {
-            if (index > 0) {
-                writer.write(',');
-            }
-            writer.write('"');
-            writer.write(escapeCsvCell(values.get(index)));
-            writer.write('"');
-        }
-        writer.write("\r\n");
-    }
-
-    private String escapeCsvCell(String value) {
-        int firstContentCharacter = 0;
-        while (firstContentCharacter < value.length()
-                && (Character.isWhitespace(value.charAt(firstContentCharacter))
-                || Character.isISOControl(value.charAt(firstContentCharacter)))) {
-            firstContentCharacter++;
-        }
-        if (firstContentCharacter < value.length()
-                && "=+-@".indexOf(value.charAt(firstContentCharacter)) >= 0) {
-            value = "'" + value;
-        }
-        return value.replace("\"", "\"\"");
+        CsvExportWriter.writeRow(writer, values);
     }
 
     private String value(Object value) {

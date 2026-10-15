@@ -71,6 +71,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/api/admin/auth/csrf").permitAll()
                         .requestMatchers("/api/admin/auth/login").permitAll()
+                        .requestMatchers("/api/admin/setup/first-super-admin").permitAll()
                         .requestMatchers("/api/organization-registration-applications").permitAll()
                         .requestMatchers("/api/admin/business-requests/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/super-admin/**").hasRole("SUPER_ADMIN")
