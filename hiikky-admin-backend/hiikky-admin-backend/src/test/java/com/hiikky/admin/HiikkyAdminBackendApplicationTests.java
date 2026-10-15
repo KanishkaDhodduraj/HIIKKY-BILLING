@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +20,9 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.sql.Timestamp;
+import java.util.UUID;
 
 import com.hiikky.admin.dto.AccountStatusRequest;
 import com.hiikky.admin.dto.CreateAdminAccountRequest;
@@ -58,6 +62,9 @@ class HiikkyAdminBackendApplicationTests {
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -781,5 +788,101 @@ class HiikkyAdminBackendApplicationTests {
 						.content(objectMapper.writeValueAsString(
 								new LoginRequest(changedEmail, "ChangedPassword456"))))
 				.andExpect(status().isOk());
+	}
+
+	@Test
+	void superAdminCanSearchFilterPaginateAndViewNotificationDispatches() throws Exception {
+		String marker = "notification-" + UUID.randomUUID();
+		jdbcTemplate.update(
+				"INSERT INTO notification (notification_type, recipient_type, subject, message, status, created_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?)",
+				"ANNOUNCEMENT", "ALL_ACTIVE_USERS", marker + " newer", "Platform launch message",
+				"DISPATCHED", Timestamp.valueOf(LocalDateTime.of(2024, 3, 2, 15, 30)));
+		jdbcTemplate.update(
+				"INSERT INTO notification (notification_type, recipient_type, subject, message, status, created_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?)",
+				"ANNOUNCEMENT", "ALL_ACTIVE_USERS", marker + " older", "Older announcement",
+				"DISPATCHED", Timestamp.valueOf(LocalDateTime.of(2024, 3, 1, 9, 0)));
+		jdbcTemplate.update(
+				"INSERT INTO notification (notification_type, recipient_type, subject, message, status, created_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?)",
+				"SYSTEM_ALERT", "BACKEND_ONLY", marker + " alert", "Internal alert",
+				"DISPATCHED", Timestamp.valueOf(LocalDateTime.of(2024, 3, 2, 16, 0)));
+		Long detailId = jdbcTemplate.queryForObject(
+				"SELECT notification_id FROM notification WHERE subject = ?",
+				Long.class,
+				marker + " newer");
+
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var superAdminSession =
+				(org.springframework.mock.web.MockHttpSession) loginResult.getRequest().getSession();
+
+		mockMvc.perform(get("/api/admin/notifications")
+						.session(superAdminSession)
+						.param("search", marker)
+						.param("notificationType", "ANNOUNCEMENT")
+						.param("recipientType", "ALL_ACTIVE_USERS")
+						.param("status", "DISPATCHED")
+						.param("fromDate", "2024-03-01")
+						.param("toDate", "2024-03-02")
+						.param("page", "0")
+						.param("size", "1")
+						.param("sortBy", "createdAt")
+						.param("sortDirection", "DESC"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Total-Count", "2"))
+				.andExpect(header().string("X-Page-Number", "0"))
+				.andExpect(header().string("X-Page-Size", "1"))
+				.andExpect(jsonPath("$.data", hasSize(1)))
+				.andExpect(jsonPath("$.data[0].subject").value(marker + " newer"))
+				.andExpect(jsonPath("$.data[0].message").doesNotExist());
+
+		mockMvc.perform(get("/api/admin/notifications/" + detailId).session(superAdminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.subject").value(marker + " newer"))
+				.andExpect(jsonPath("$.data.message").value("Platform launch message"));
+
+		mockMvc.perform(get("/api/admin/notifications/9223372036854775807")
+						.session(superAdminSession))
+				.andExpect(status().isNotFound());
+
+		mockMvc.perform(get("/api/admin/notifications")
+						.session(superAdminSession)
+						.param("fromDate", "2024-03-01"))
+				.andExpect(status().isBadRequest());
+
+		mockMvc.perform(get("/api/admin/notifications")
+						.session(superAdminSession)
+						.param("notificationType", "UNKNOWN"))
+				.andExpect(status().isBadRequest());
+
+		mockMvc.perform(get("/api/admin/notifications")
+						.session(superAdminSession)
+						.param("search", marker + "missing"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Total-Count", "0"))
+				.andExpect(jsonPath("$.data", hasSize(0)));
+
+		mockMvc.perform(get("/api/admin/notifications")
+						.session(superAdminSession)
+						.param("page", "2147483647")
+						.param("size", "100"))
+				.andExpect(status().isBadRequest());
+
+		var adminLoginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var adminSession =
+				(org.springframework.mock.web.MockHttpSession) adminLoginResult.getRequest().getSession();
+		mockMvc.perform(get("/api/admin/notifications").session(adminSession))
+				.andExpect(status().isForbidden());
 	}
 }

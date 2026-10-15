@@ -2,7 +2,7 @@
 
 ## Scope and source of truth
 
-This specification describes the Spring Boot API under `hiikky-admin-backend/hiikky-admin-backend`. Its initialized schema is `admin_accounts`, `business_owners`, and `organizations` in `src/main/resources/schema.sql`. The separately maintained `organization-owner-console` is not an Admin frontend or an Admin API. No Admin frontend code is present in this repository.
+This specification describes the Spring Boot API under `hiikky-admin-backend/hiikky-admin-backend`. Its initialized schema is `admin_accounts`, `business_owners`, `organizations`, and the shared `notification` dispatch-history table in `src/main/resources/schema.sql`. The separately maintained `organization-owner-console` is not an Admin frontend or an Admin API. No Admin frontend code is present in this repository.
 
 The Admin API uses cookie-backed Spring Security sessions. Requests other than login and public health/info endpoints require authentication. Business Owner, dashboard, analytics, and account-management endpoints requiring Super Admin access enforce that role. Organization management allows `ADMIN` and `SUPER_ADMIN`.
 
@@ -115,12 +115,20 @@ All `/api/admin/accounts` routes require Super Admin. Admin response fields are 
 * `POST /api/admin/auth/logout` requires authentication. It invalidates the current HTTP session, clears the security context, and expires `JSESSIONID`; success returns `data: null`. Reuse of the invalidated session for protected API calls returns 401. Logout is not a notification or audit operation.
 * `GET /api/admin/super-admin/dashboard` is an existing Super Admin-only placeholder that returns a static access message; it is not the implemented analytics dashboard. Frontend must use `/api/admin/dashboard`.
 
+## Admin notification dispatch history (partial)
+
+The legacy notification model and DAO establish a shared `notification` table with `notification_id`, `notification_type`, `recipient_type`, `subject`, `message`, `status`, and `created_at`. Its menu records `ANNOUNCEMENT`/`SYSTEM_ALERT` entries for `ALL_ACTIVE_USERS`, `BACKEND_ONLY`, or `UNPAID_SEGMENT`, and writes `DISPATCHED` as the status. Those are global outgoing-dispatch history rows, not Admin-private notifications or per-recipient delivery receipts. The Admin schema script declares this table for new/test schemas; an existing legacy table is reused by name and is not altered by `CREATE TABLE IF NOT EXISTS`.
+
+* `GET /api/admin/notifications` — Super Admin only. Query: `page` (zero-based, default 0), `size` (default 20, range 1..100), optional exact `notificationType`, `recipientType`, `status`, `fromDate`, `toDate`, and `search`; `sortBy` is `createdAt` or `id` (default `createdAt`), `sortDirection` is `ASC`/`DESC` (default `DESC`). Supported exact filters are notification types `ANNOUNCEMENT`/`SYSTEM_ALERT`, recipient types `ALL_ACTIVE_USERS`/`BACKEND_ONLY`/`UNPAID_SEGMENT`, and status `DISPATCHED`. Search is case-insensitive partial match across subject and message. Filters combine with AND; search fields combine with OR. Dates must be paired ISO dates in ascending order and include both calendar days in database-session timezone. Invalid filters/ranges/page/size return 400. Results are sorted by selected field and ID in the same direction; headers provide total count and page metadata. List items omit the message body.
+* `GET /api/admin/notifications/{id}` returns the dispatch detail including message; missing IDs return 404. The response exposes only fields in the existing dispatch record.
+* The API is read-only. The legacy menu has a compose flow, but the available code only writes a row marked `DISPATCHED`; it does not establish delivery behavior, an authenticated dispatch actor, or a sender integration. No Admin create/dispatch, read/unread, bulk-read, or billing-notification operation is exposed. `billing_notifications` are organization/billing/subscriber records and are not part of this API.
+
 ## Modules that are not implemented
 
 * **Business Requests — BLOCKED:** no separate request entity/table, intake route, or request statuses. Product must define source/intake fields, identity/duplicate rules, status transitions, approval/rejection effects, rejection-reason policy, assignment/notifications, and audit/history requirements. Owner `ACTIVE`/`INACTIVE` is not a request workflow.
 * **Revenue — BLOCKED:** the Admin schema has no platform ledger, settlement/payment-provider data, fee/commission rule, or platform revenue-recognition policy. Legacy owner-console billing amounts are organization invoices and cannot be represented as HIIKKY revenue.
 * **Support — BLOCKED:** no ticket, message, assignment, lifecycle, or history table/API. Define intake, tenant/requester scope, state transitions, assignment/reply policy, and retention.
-* **Notifications — BLOCKED for a Super Admin center:** legacy DAOs refer to `notification` and `billing_notifications`, but this repository contains no DDL/migrations for them. Generic notifications only identify recipient type and arbitrary status; there is no authenticated Admin recipient identity, established read/unread semantics, or access policy. Billing notifications are tenant billing records, not private Admin notifications. Do not surface or mutate without a schema and ownership/read-state policy.
+* **Notification read state and sending — BLOCKED:** there are no read/unread fields, per-Admin recipient ownership, or delivery integration. Define whether Super Admins may compose/send, how delivery is confirmed, what recipient visibility means, and whether Admin-specific unread notifications are needed. Billing notifications remain tenant-scoped and excluded.
 * **Reports — BLOCKED as a separate report suite:** no Admin report requirements or shared Admin sources beyond owners/orgs/admin accounts. Dashboard and registration analytics expose the supported aggregates. Report outputs, filters, export formats, access scope, and additional data source requirements need product definition before adding duplicate or tenant-sensitive reports.
 * **Settings — BLOCKED:** no Admin-managed setting store or defined editable settings. Runtime configuration/secrets remain deployment-managed.
 
@@ -138,13 +146,14 @@ No Admin web application or screen-specific design assets are in this repository
 | Owner activate/deactivate/delete | PATCH/DELETE owner routes | Confirmation dialog is frontend-only; the API performs the status/delete operation. |
 | Organizations table/details/edit/assignment | organization GET/POST/PUT/PATCH/DELETE and owner relationship routes | Search/filter/table selection/dialog interactions are frontend-only; mutations use matching endpoint. |
 | Admin accounts | account GET/POST/PUT/PATCH/DELETE routes | Search/filter/pagination and confirmation UI; last-active-Super-Admin error must be shown. |
+| Notification dispatch history | `GET /api/admin/notifications` and `GET /api/admin/notifications/{id}` | Search/filter/sort/page controls query the list endpoint; opening a row fetches full message detail. No read/unread or dispatch control is supported. |
 | Profile | GET/PATCH profile | Password inputs must not be prefilled; success updates displayed email from API. |
 | Login/logout | POST login/logout; GET `/me` | Route changes and session-aware navigation are client-side. |
 
-There are no supported UI actions/API operations yet for requests, Admin notifications, support, platform revenue, separate reports/exports, or editable Admin settings.
+There are no supported UI actions/API operations yet for requests, notification read state or sending, support, platform revenue, separate reports/exports, or editable Admin settings.
 
 ## Automated tests
 
-Tests are in `hiikky-admin-backend/hiikky-admin-backend/src/test/java`. `DashboardControllerTest` tests dashboard roles, date and activity pagination validation. `BusinessOwnerControllerTest` tests Super Admin-only owner access, list contract, duplicate/invalid input, statuses, and missing record handling. `HiikkyAdminBackendApplicationTests` exercises H2 integration for auth/session fixation/logout, account/owner/organization lifecycle, dashboard and analytics ranges, profile password/email update, and owner organization filter/sort. Controller tests for organizations and admin accounts cover their authorization, validation, and CRUD contract.
+Tests are in `hiikky-admin-backend/hiikky-admin-backend/src/test/java`. `DashboardControllerTest` tests dashboard roles, date and activity pagination validation. `BusinessOwnerControllerTest` tests Super Admin-only owner access, list contract, duplicate/invalid input, statuses, and missing record handling. `HiikkyAdminBackendApplicationTests` exercises H2 integration for auth/session fixation/logout, account/owner/organization lifecycle, dashboard and analytics ranges, profile password/email update, owner organization filter/sort, and notification dispatch filtering/pagination/detail/authorization. Controller tests for organizations and admin accounts cover their authorization, validation, and CRUD contract.
 
 Run from the backend project directory: `mvnw.cmd test`. Tests use H2 profile; do not point tests at the live MySQL instance.

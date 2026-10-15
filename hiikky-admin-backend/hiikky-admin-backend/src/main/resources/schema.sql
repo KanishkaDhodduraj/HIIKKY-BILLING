@@ -31,3 +31,14 @@ CREATE TABLE IF NOT EXISTS organizations (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_organization_owner FOREIGN KEY (owner_id) REFERENCES business_owners(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS notification (
+    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+    notification_type VARCHAR(50) NOT NULL,
+    recipient_type VARCHAR(50) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_notification_created_at (created_at)
+);

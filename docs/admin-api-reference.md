@@ -75,6 +75,19 @@ OrganizationResponse fields: `id`, `name`, `ownerId`, `ownerName`, `email`, `pho
 
 AdminAccountResponse fields: `id`, `email`, `role`, `enabled`, `createdAt`, `updatedAt`; never includes password or hash.
 
+## Admin notification dispatch history (Super Admin only)
+
+The existing `notification` records are outgoing dispatch-history rows from the legacy notification module, not private messages addressed to an Admin. The API is read-only; it does not dispatch messages or expose `billing_notifications`.
+
+| Method and path | Purpose / input |
+| --- | --- |
+| `GET /notifications` | Query `page=0`, `size=20` (1..100), `notificationType?` (`ANNOUNCEMENT`, `SYSTEM_ALERT`), `recipientType?` (`ALL_ACTIVE_USERS`, `BACKEND_ONLY`, `UNPAID_SEGMENT`), `status?` (`DISPATCHED`), `search?` (case-insensitive partial match over subject/message), `fromDate?`, `toDate?`, `sortBy=createdAt`, `sortDirection=DESC`. |
+| `GET /notifications/{id}` | Dispatch detail, including message; missing row returns 404. |
+
+Filters combine with AND; search matches either subject or message. Dates must be supplied together as ISO `yyyy-MM-dd`, with `fromDate <= toDate`; both ends are inclusive in the database-session timezone. Sort fields are `createdAt` and `id`; the default is newest first, with ID as a stable tie-breaker. `X-Total-Count`, `X-Page-Number`, and `X-Page-Size` report pagination. List items contain `id`, `notificationType`, `recipientType`, `subject`, `status`, and `createdAt`; only the detail response includes `message`. Invalid enum values, dates, sort fields, page, or size return 400.
+
+The legacy model has no read/unread fields, Admin recipient ownership, or verified delivery service. Therefore read-state changes, bulk-read, composing/dispatching, and billing notification access are not implemented.
+
 ## Common errors
 
 * `400`: invalid page/size, invalid enum/date/range, Bean Validation failure, unsupported owner status, or last-Super-Admin protection. Bean errors include e.g. `"fieldErrors":{"email":"Email must be a valid email address"}`.
@@ -98,4 +111,4 @@ Error example:
 
 ## Not available
 
-No Admin endpoints exist for business requests/approvals, platform revenue, support tickets, Admin notifications, separate reports/exports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.
+No Admin endpoints exist for business requests/approvals, platform revenue, support tickets, notification read-state or sending, separate reports/exports, or editable Admin settings. See [admin-backend-feature-specification.md](./admin-backend-feature-specification.md) for the precise missing schemas and decisions.
