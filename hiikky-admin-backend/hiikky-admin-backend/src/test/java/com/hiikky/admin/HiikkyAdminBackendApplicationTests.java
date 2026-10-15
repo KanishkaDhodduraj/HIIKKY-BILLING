@@ -1248,4 +1248,57 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.fieldErrors").exists());
 	}
+
+	@Test
+	void publicRegistrationRateLimitSettingIsSuperAdminOnlyPersistentAndValidated() throws Exception {
+		mockMvc.perform(get("/api/admin/settings/public-registration-rate-limit"))
+				.andExpect(status().isUnauthorized());
+
+		var adminLogin = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("admin@hiikky.com", "SecureAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var adminSession = (org.springframework.mock.web.MockHttpSession) adminLogin.getRequest().getSession();
+		mockMvc.perform(get("/api/admin/settings/public-registration-rate-limit").session(adminSession))
+				.andExpect(status().isForbidden());
+
+		var superAdminLogin = mockMvc.perform(post("/api/admin/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest("superadmin@hiikky.com", "SuperAdminPassword123"))))
+				.andExpect(status().isOk())
+				.andReturn();
+		var superAdminSession =
+				(org.springframework.mock.web.MockHttpSession) superAdminLogin.getRequest().getSession();
+		mockMvc.perform(get("/api/admin/settings/public-registration-rate-limit").session(superAdminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.maxSubmissions").value(10))
+				.andExpect(jsonPath("$.data.windowMinutes").value(15))
+				.andExpect(jsonPath("$.data.updatedByAdminId").doesNotExist());
+
+		mockMvc.perform(put("/api/admin/settings/public-registration-rate-limit")
+						.with(csrf())
+						.session(superAdminSession)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"maxSubmissions\":23}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.maxSubmissions").value(23))
+				.andExpect(jsonPath("$.data.updatedByAdminId").isNumber())
+				.andExpect(jsonPath("$.data.updatedAt").isNotEmpty());
+		mockMvc.perform(get("/api/admin/settings/public-registration-rate-limit").session(superAdminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.maxSubmissions").value(23));
+
+		mockMvc.perform(put("/api/admin/settings/public-registration-rate-limit")
+						.with(csrf())
+						.session(superAdminSession)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"maxSubmissions\":0}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fieldErrors.maxSubmissions").exists());
+	}
 }

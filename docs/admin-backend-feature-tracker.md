@@ -16,6 +16,7 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 | Notification dispatch history | PARTIAL | Super Admin-only read/list/detail of the legacy global dispatch-history table; search/type/recipient/status/date filters, sorting, pagination; no message body in list | H2 filter/search/date/pagination/detail/missing-row and role tests |
 | Directory reports / CSV export | PARTIAL | Super Admin-only Business Owner and Organization directory reports; JSON filters/search/date ranges/sorting/pagination/counts and CSV exports capped at 10,000 rows; no financial or tenant billing calculations | H2 report filtering/pagination/role checks, CSV quoting and formula-safety assertions |
 | Business Requests / organization registration applications | DONE | Public CSRF-protected intake; Super Admin list/search/status/date filter/sort/page/detail/approve/reject; PENDING-only single decision; rejection reason; approval atomically creates an active owner and assigned organization; history stored; duplicate pending identity rejected; process-local public limit | H2 integration: intake, duplicate pending, approval side effects, rejection reason/history, resubmission after rejection, validation, role authorization |
+| Admin Settings | DONE | Super Admin can retrieve/update the persisted public registration intake cap (default 10, range 1..100, fixed 15-minute window); changes apply on the next intake; only latest editor/time recorded; no server secrets exposed | H2: default, role protection, validation, persistence; limiter unit test verifies live setting reads |
 | API error contract | DONE | Standard wrapper, field-level validation errors, typed parameter errors | MVC validation/error assertions |
 
 ### Dashboard and analytics source map
@@ -25,8 +26,9 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 * `admin_accounts`: admin total/enabled/disabled, registration and latest update for activity/analytics.
 * `notification`: legacy outgoing dispatch history only (`DISPATCHED`); no recipient-level delivery/read records. The Admin API is read-only and excludes `billing_notifications`.
 * Business Request workflow: `business_requests` stores normalized intake and decision data; `business_request_history` stores submission/decision events. `pending_identity_hash` is a nullable unique key, cleared at decision so rejected requests may be resubmitted.
+* `admin_settings`: stores only `public_registration_max_submissions`; V3 seeds the pre-existing default value of 10. The limiter reads the database value for each intake; its per-address counters remain process-local.
 * Directory reports: `business_owners` and `organizations`; owner organization count uses a correlated count over `organizations.owner_id`; organization rows use the nullable `owner_id` relation. Date filters use the primary record's `created_at`, inclusive by day in database-session timezone. No revenue or owner-console billing data is included.
-* Normal datasource defaults to MySQL `jdbc:mysql://localhost:3306/hiikky_db`; tests use an isolated H2 URL. Live MySQL connectivity and the deployed schema remain unverified: DB environment variables are unset and no MySQL client is installed. H2 results do not establish production compatibility.
+* Normal datasource defaults to MySQL `jdbc:mysql://localhost:3306/hiikky_db`; tests use an isolated H2 URL. Live MySQL connectivity and the deployed schema remain unverified: the read-only connection attempt using configured defaults was rejected with SQLState `28000` / error 1045. H2 results do not establish production compatibility.
 * Dashboard summarizes current totals regardless of date filter; range only affects period counters and recent activity.
 * Analytics aggregates each table separately by date and event category before application grouping; no multi-table join. `DAY`, Monday-starting `WEEK`, and `MONTH` buckets. Dates are interpreted in database-session timezone. Empty analytics has zero summary and no synthetic periods.
 * Recent activity is only latest timestamps on current records, not history or actor-aware auditing. It is paginated (default 20, max 100).
@@ -38,11 +40,10 @@ This tracker is based on the current Admin API schema and implementation. “Blo
 | Platform Revenue | BLOCKED | Admin schema has no platform transaction/settlement ledger, fee/commission rules, or platform recognition source. Owner-console billing is organization invoicing and cannot be assumed to be HIIKKY revenue. | Revenue recognition policy, trusted platform transaction source, successful/failed/refund/fee semantics, currency/timezone, and access requirements |
 | Support Center | BLOCKED | No support ticket, thread/message, assignee, status, or history structure | Ticket intake/identity scope, tenant visibility, lifecycle, assignment/replies, timestamps, permissions, retention/audit |
 | Admin notification read-state/sending | BLOCKED | No read/unread fields, authenticated Admin recipient ownership, or delivery integration. Legacy compose only stores a row marked `DISPATCHED`; status does not prove delivery. `billing_notifications` are tenant billing records. | Delivery/sending semantics, Admin recipient visibility, read-state policy, bulk operation policy, retention |
-| Admin Settings | BLOCKED | No Admin setting model or product-defined safe editable values. Server configuration is deployment-managed. | Named settings, allowed values, persistence, effect timing, authorization, audit requirements |
 
 Additional subscriber/subscription/billing reports remain BLOCKED. The legacy owner-console Java DAOs reference `subscribers`, `subscriptions`, `billing`, and `billing_notifications`, including fields such as `amount`, `payment_status`, `paid_date`, `due_date`, and `organization_id`, but the repository contains no DDL/migrations for those tables. The Admin schema does not include them, and live MySQL metadata access failed with SQLState `28000` / error 1045. Before implementing any report, obtain read-only deployed table metadata and confirm cross-tenant authorization, report purpose, formulas, date/timezone, filters, and export limits. These billing records are not platform revenue.
 
-The runtime base schema is in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/schema.sql`; additive Flyway migrations are in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/db/migration/`. V1 creates the existing Admin tables for new schemas; V2 adds Business Request and history tables. Existing non-empty schemas baseline at version 1 and receive V2. Do not treat owner `ACTIVE`/`INACTIVE` status as an application state.
+The runtime base schema is in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/schema.sql`; additive Flyway migrations are in `hiikky-admin-backend/hiikky-admin-backend/src/main/resources/db/migration/`. V1 creates the existing Admin tables for new schemas; V2 adds Business Request and history tables; V3 adds the one supported Admin setting. Existing non-empty schemas baseline at version 1 and receive V2 and V3. Do not treat owner `ACTIVE`/`INACTIVE` status as an application state.
 
 ## Frontend action mapping
 
@@ -60,14 +61,15 @@ No Admin frontend implementation is present. Future UI should use existing APIs 
 | Notification dispatch history search/filter/sort/page/detail | `GET /api/admin/notifications` and `GET /api/admin/notifications/{id}` | Open detail to display the message; do not show read/unread or send controls |
 | Business Owner / Organization directory reports | `GET /api/admin/reports/business-owners`, `/organizations` and their `.csv` exports | JSON search/filter/date/sort/page controls; CSV download is a separate action and may return 413 above the row cap |
 | Business registration applications | Public `POST /api/organization-registration-applications`; Super Admin `GET /api/admin/business-requests`, `GET /{id}`, `PATCH /{id}/approve`, `PATCH /{id}/reject` | Form state is client-side; approve/reject confirmation is UI-only; API enforces access, validation and decision rules |
+| Public registration rate setting | Super Admin `GET`/`PUT /api/admin/settings/public-registration-rate-limit` | Admin form and any confirmation are frontend-only; update applies to subsequent intake checks |
 | Profile | Profile GET/PATCH | Credential field handling and display |
 | Login/logout | Auth POST routes | Navigation and local authenticated state |
 
-Do not add revenue cards, support queues, notification read/unread or dispatch controls, additional report types, or settings controls until their modules are unblocked.
+Do not add revenue cards, support queues, notification read/unread or dispatch controls, or additional report types until their modules are unblocked.
 
 ## Validation run for the current implementation
 
-* `mvnw.cmd test` from `hiikky-admin-backend/hiikky-admin-backend`: 62 tests passed; H2 profile, including the Business Request workflow.
+* `mvnw.cmd test` from `hiikky-admin-backend/hiikky-admin-backend`: 64 tests passed; H2 profile, including Business Requests and Admin Settings.
 * `git diff --check`: passed for the current changes.
 * The live MySQL schema/migration was not verified; this environment's configured database credentials were rejected during prior read-only inspection.
 
