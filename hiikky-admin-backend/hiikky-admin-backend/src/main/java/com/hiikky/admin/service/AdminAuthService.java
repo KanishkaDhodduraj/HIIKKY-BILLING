@@ -2,6 +2,9 @@ package com.hiikky.admin.service;
 
 import com.hiikky.admin.dto.AdminResponse;
 import com.hiikky.admin.dto.LoginRequest;
+import com.hiikky.admin.dto.UpdateAdminProfileRequest;
+import com.hiikky.admin.exception.DuplicateResourceException;
+import com.hiikky.admin.exception.ResourceNotFoundException;
 import com.hiikky.admin.model.AdminAccount;
 import com.hiikky.admin.model.AdminRole;
 import com.hiikky.admin.repository.AdminAccountRepository;
@@ -10,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -78,5 +82,45 @@ public class AdminAuthService {
 
         AdminAccount saved = adminAccountRepository.save(newAccount);
         return new AdminResponse(saved.getId(), saved.getEmail(), saved.getRole(), saved.isEnabled());
+    }
+
+    public AdminResponse getProfile(Long adminId) {
+        AdminAccount account = adminAccountRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin account not found"));
+        return toResponse(account);
+    }
+
+    public AdminResponse updateProfile(Long adminId, UpdateAdminProfileRequest request) {
+        AdminAccount account = adminAccountRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin account not found"));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), account.getPasswordHash())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        boolean emailChanged = request.getEmail() != null;
+        boolean passwordChanged = request.getNewPassword() != null && !request.getNewPassword().isBlank();
+        if (!emailChanged && !passwordChanged) {
+            throw new IllegalArgumentException("Provide an email or new password to update");
+        }
+        if (emailChanged) {
+            if (request.getEmail().isBlank()) {
+                throw new IllegalArgumentException("Email must not be blank");
+            }
+            String email = request.getEmail().trim().toLowerCase();
+            if (!email.equalsIgnoreCase(account.getEmail())) {
+                if (adminAccountRepository.existsByEmail(email)) {
+                    throw new DuplicateResourceException("Email is already in use by another admin account");
+                }
+                account.setEmail(email);
+            }
+        }
+        if (passwordChanged) {
+            account.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        }
+        return toResponse(adminAccountRepository.save(account));
+    }
+
+    private AdminResponse toResponse(AdminAccount account) {
+        return new AdminResponse(account.getId(), account.getEmail(), account.getRole(), account.isEnabled());
     }
 }

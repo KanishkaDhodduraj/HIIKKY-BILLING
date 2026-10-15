@@ -177,6 +177,17 @@ public class JdbcOrganizationRepository implements OrganizationRepository {
     }
 
     @Override
+    public List<Organization> findByOwnerIds(List<Long> ownerIds) {
+        if (ownerIds.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(ownerIds.size(), "?"));
+        String sql = "SELECT id, name, owner_id, email, phone, address, status, created_at, updated_at "
+                + "FROM organizations WHERE owner_id IN (" + placeholders + ") ORDER BY owner_id, id";
+        return jdbcTemplate.query(sql, rowMapper, ownerIds.toArray());
+    }
+
+    @Override
     public long countByOwnerId(Long ownerId) {
         Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organizations WHERE owner_id = ?", Long.class, ownerId);
         return count != null ? count : 0L;

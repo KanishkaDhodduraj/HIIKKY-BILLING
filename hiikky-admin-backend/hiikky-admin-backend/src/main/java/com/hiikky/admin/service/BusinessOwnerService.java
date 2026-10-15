@@ -7,13 +7,16 @@ import com.hiikky.admin.dto.UpdateBusinessOwnerRequest;
 import com.hiikky.admin.exception.DuplicateResourceException;
 import com.hiikky.admin.exception.ResourceNotFoundException;
 import com.hiikky.admin.model.BusinessOwner;
+import com.hiikky.admin.model.BusinessOwnerSortField;
 import com.hiikky.admin.model.Organization;
 import com.hiikky.admin.model.OwnerStatus;
+import com.hiikky.admin.model.SortDirection;
 import com.hiikky.admin.repository.BusinessOwnerRepository;
 import com.hiikky.admin.repository.OrganizationRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,21 +32,44 @@ public class BusinessOwnerService {
     }
 
     public List<BusinessOwnerResponse> listOwners(int page, int size, OwnerStatus status, String search) {
-        int offset = page * size;
-        List<BusinessOwner> owners = businessOwnerRepository.findAll(offset, size, status, search);
+        return listOwners(page, size, status, search, null, BusinessOwnerSortField.ID, SortDirection.ASC);
+    }
+
+    public List<BusinessOwnerResponse> listOwners(
+            int page, int size, OwnerStatus status, String search, Long organizationId,
+            BusinessOwnerSortField sortField, SortDirection sortDirection) {
+        int offset;
+        try {
+            offset = Math.multiplyExact(page, size);
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Page index is too large", exception);
+        }
+        if (organizationId != null && !organizationRepository.existsById(organizationId)) {
+            throw new ResourceNotFoundException("Organization not found with id: " + organizationId);
+        }
+        List<BusinessOwner> owners = businessOwnerRepository.findAll(
+                offset, size, status, search, organizationId, sortField, sortDirection);
+        Map<Long, List<Organization>> organizationsByOwner = organizationRepository.findByOwnerIds(
+                        owners.stream().map(BusinessOwner::getId).toList())
+                .stream()
+                .collect(Collectors.groupingBy(Organization::getOwnerId));
         return owners.stream()
                 .map(owner -> {
-                    List<Organization> orgs = organizationRepository.findByOwnerId(owner.getId());
-                    List<OrganizationResponse> orgResponses = orgs.stream()
+                    List<OrganizationResponse> orgResponses = organizationsByOwner
+                            .getOrDefault(owner.getId(), List.of()).stream()
                             .map(o -> OrganizationResponse.from(o, owner.getFullName()))
-                            .collect(Collectors.toList());
+                            .toList();
                     return BusinessOwnerResponse.from(owner, orgResponses);
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public long countOwners(OwnerStatus status, String search) {
         return businessOwnerRepository.countWithFilters(status, search);
+    }
+
+    public long countOwners(OwnerStatus status, String search, Long organizationId) {
+        return businessOwnerRepository.countWithFilters(status, search, organizationId);
     }
 
     public BusinessOwnerResponse getOwnerById(Long id) {
@@ -79,7 +105,10 @@ public class BusinessOwnerService {
         BusinessOwner existing = businessOwnerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Business owner not found with id: " + id));
 
-        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+        if (request.getEmail() != null) {
+            if (request.getEmail().isBlank()) {
+                throw new IllegalArgumentException("Email must not be blank");
+            }
             String newEmail = request.getEmail().trim().toLowerCase();
             if (!newEmail.equalsIgnoreCase(existing.getEmail())) {
                 if (businessOwnerRepository.existsByEmailAndIdNot(newEmail, id)) {
@@ -89,14 +118,17 @@ public class BusinessOwnerService {
             }
         }
 
-        if (request.getFirstName() != null && !request.getFirstName().trim().isEmpty()) {
+        if (request.getFirstName() != null) {
+            if (request.getFirstName().isBlank()) {
+                throw new IllegalArgumentException("First name must not be blank");
+            }
             existing.setFirstName(request.getFirstName().trim());
         }
         if (request.getLastName() != null) {
-            existing.setLastName(request.getLastName().trim());
+            existing.setLastName(trimToNull(request.getLastName()));
         }
         if (request.getPhone() != null) {
-            existing.setPhone(request.getPhone().trim());
+            existing.setPhone(trimToNull(request.getPhone()));
         }
         if (request.getStatus() != null) {
             existing.setStatus(request.getStatus());
@@ -110,10 +142,21 @@ public class BusinessOwnerService {
         return BusinessOwnerResponse.from(updated, orgResponses);
     }
 
+    private String trimToNull(String value) {
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     public BusinessOwnerResponse setOwnerStatus(Long id, OwnerStatus status) {
         BusinessOwner existing = businessOwnerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Business owner not found with id: " + id));
 
+        if (existing.getStatus() == status) {
+            List<OrganizationResponse> orgResponses = organizationRepository.findByOwnerId(existing.getId()).stream()
+                    .map(org -> OrganizationResponse.from(org, existing.getFullName()))
+                    .toList();
+            return BusinessOwnerResponse.from(existing, orgResponses);
+        }
         existing.setStatus(status);
         BusinessOwner updated = businessOwnerRepository.save(existing);
         List<Organization> orgs = organizationRepository.findByOwnerId(updated.getId());

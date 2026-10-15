@@ -1,6 +1,7 @@
 package com.hiikky.admin.dto;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public class ApiResponse<T> {
 
@@ -8,6 +9,7 @@ public class ApiResponse<T> {
     private String message;
     private T data;
     private LocalDateTime timestamp;
+    private Map<String, String> fieldErrors;
 
     public ApiResponse() {
     }
@@ -25,6 +27,12 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(false, message, null);
+    }
+
+    public static <T> ApiResponse<T> validationError(String message, Map<String, String> fieldErrors) {
+        ApiResponse<T> response = error(message);
+        response.setFieldErrors(Map.copyOf(fieldErrors));
+        return response;
     }
 
     public boolean isSuccess() {
@@ -57,5 +65,13 @@ public class ApiResponse<T> {
 
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public Map<String, String> getFieldErrors() {
+        return fieldErrors;
+    }
+
+    public void setFieldErrors(Map<String, String> fieldErrors) {
+        this.fieldErrors = fieldErrors;
     }
 }

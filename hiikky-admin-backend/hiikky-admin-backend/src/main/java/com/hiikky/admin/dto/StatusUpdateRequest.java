@@ -34,9 +34,22 @@ public class StatusUpdateRequest {
     }
 
     public boolean isActive() {
+        Boolean statusIsActive = null;
+        if (status != null) {
+            if (!"ACTIVE".equalsIgnoreCase(status) && !"INACTIVE".equalsIgnoreCase(status)) {
+                throw new IllegalArgumentException("Status must be ACTIVE or INACTIVE");
+            }
+            statusIsActive = "ACTIVE".equalsIgnoreCase(status);
+        }
+        if (enabled != null && statusIsActive != null && !enabled.equals(statusIsActive)) {
+            throw new IllegalArgumentException("Status and enabled values must agree");
+        }
         if (enabled != null) {
             return enabled;
         }
-        return "ACTIVE".equalsIgnoreCase(status);
+        if (statusIsActive != null) {
+            return statusIsActive;
+        }
+        throw new IllegalArgumentException("Either status or enabled is required");
     }
 }

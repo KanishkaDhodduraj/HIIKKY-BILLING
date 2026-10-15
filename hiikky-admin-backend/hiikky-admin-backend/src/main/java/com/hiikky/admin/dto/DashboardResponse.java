@@ -7,10 +7,15 @@ import java.util.List;
 public record DashboardResponse(
         LocalDate fromDate,
         LocalDate toDate,
+        String timezone,
         PlatformSummary platformSummary,
         BusinessOwnerStatistics businessOwners,
         OrganizationStatistics organizations,
-        List<PlatformActivity> recentActivity
+        AdminAccountStatistics adminAccounts,
+        List<PlatformActivity> recentActivity,
+        long recentActivityTotal,
+        int recentActivityPage,
+        int recentActivitySize
 ) {
     public DashboardResponse {
         recentActivity = List.copyOf(recentActivity);
@@ -23,6 +28,9 @@ public record DashboardResponse(
     }
 
     public record OrganizationStatistics(long total, long active, long inactive, long createdInRange) {
+    }
+
+    public record AdminAccountStatistics(long total, long enabled, long disabled) {
     }
 
     public record PlatformActivity(

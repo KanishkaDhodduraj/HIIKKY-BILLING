@@ -6,7 +6,9 @@ import com.hiikky.admin.dto.CreateBusinessOwnerRequest;
 import com.hiikky.admin.dto.OrganizationResponse;
 import com.hiikky.admin.dto.StatusUpdateRequest;
 import com.hiikky.admin.dto.UpdateBusinessOwnerRequest;
+import com.hiikky.admin.model.BusinessOwnerSortField;
 import com.hiikky.admin.model.OwnerStatus;
+import com.hiikky.admin.model.SortDirection;
 import com.hiikky.admin.service.BusinessOwnerService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -35,16 +37,21 @@ public class BusinessOwnerController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) OwnerStatus status,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long organizationId,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "ASC") SortDirection sortDirection) {
         if (page < 0) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Page index must not be negative"));
         }
         if (size < 1 || size > 100) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Page size must be between 1 and 100"));
         }
+        BusinessOwnerSortField sortField = BusinessOwnerSortField.fromParameter(sortBy);
 
-        List<BusinessOwnerResponse> owners = businessOwnerService.listOwners(page, size, status, search);
-        long totalCount = businessOwnerService.countOwners(status, search);
+        List<BusinessOwnerResponse> owners = businessOwnerService.listOwners(
+                page, size, status, search, organizationId, sortField, sortDirection);
+        long totalCount = businessOwnerService.countOwners(status, search, organizationId);
 
         return ResponseEntity.ok()
                 .header("X-Total-Count", String.valueOf(totalCount))

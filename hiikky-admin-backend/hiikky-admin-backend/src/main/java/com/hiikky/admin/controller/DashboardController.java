@@ -27,7 +27,9 @@ public class DashboardController {
     @GetMapping
     public ResponseEntity<ApiResponse<DashboardResponse>> getDashboard(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         if ((fromDate == null) != (toDate == null)) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Both fromDate and toDate must be provided together"));
@@ -36,7 +38,13 @@ public class DashboardController {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("fromDate must be on or before toDate"));
         }
-        DashboardResponse dashboard = dashboardService.getDashboard(fromDate, toDate);
+        if (page < 0) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Activity page index must not be negative"));
+        }
+        if (size < 1 || size > 100) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Activity page size must be between 1 and 100"));
+        }
+        DashboardResponse dashboard = dashboardService.getDashboard(fromDate, toDate, page, size);
         return ResponseEntity.ok(ApiResponse.success("Dashboard data retrieved successfully", dashboard));
     }
 }

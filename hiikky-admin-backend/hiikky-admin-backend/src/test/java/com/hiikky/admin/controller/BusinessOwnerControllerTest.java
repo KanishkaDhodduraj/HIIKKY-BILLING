@@ -9,7 +9,9 @@ import com.hiikky.admin.dto.UpdateBusinessOwnerRequest;
 import com.hiikky.admin.exception.DuplicateResourceException;
 import com.hiikky.admin.exception.ResourceNotFoundException;
 import com.hiikky.admin.model.OrganizationStatus;
+import com.hiikky.admin.model.BusinessOwnerSortField;
 import com.hiikky.admin.model.OwnerStatus;
+import com.hiikky.admin.model.SortDirection;
 import com.hiikky.admin.security.AdminUserDetailsService;
 import com.hiikky.admin.service.BusinessOwnerService;
 import org.junit.jupiter.api.DisplayName;
@@ -56,9 +58,10 @@ class BusinessOwnerControllerTest {
                 1L, "John", "Doe", "John Doe", "john@example.com", "1234567890",
                 OwnerStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), Collections.emptyList()
         );
-        Mockito.when(businessOwnerService.listOwners(0, 20, OwnerStatus.ACTIVE, "John"))
+        Mockito.when(businessOwnerService.listOwners(
+                        0, 20, OwnerStatus.ACTIVE, "John", null, BusinessOwnerSortField.ID, SortDirection.ASC))
                 .thenReturn(Collections.singletonList(dummy));
-        Mockito.when(businessOwnerService.countOwners(OwnerStatus.ACTIVE, "John"))
+        Mockito.when(businessOwnerService.countOwners(OwnerStatus.ACTIVE, "John", null))
                 .thenReturn(1L);
 
         mockMvc.perform(get("/api/admin/business-owners")
@@ -150,7 +153,8 @@ class BusinessOwnerControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success", is(false)));
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.fieldErrors.email", notNullValue()));
     }
 
     @Test
@@ -176,6 +180,19 @@ class BusinessOwnerControllerTest {
         mockMvc.perform(patch("/api/admin/business-owners/1/deactivate"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+    }
+
+    @Test
+    @DisplayName("Reject unsupported owner status instead of treating it as inactive")
+    @WithMockUser(roles = "SUPER_ADMIN")
+    void rejectsUnsupportedOwnerStatus() throws Exception {
+        mockMvc.perform(patch("/api/admin/business-owners/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"PENDING\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)));
+
+        Mockito.verifyNoInteractions(businessOwnerService);
     }
 
     @Test

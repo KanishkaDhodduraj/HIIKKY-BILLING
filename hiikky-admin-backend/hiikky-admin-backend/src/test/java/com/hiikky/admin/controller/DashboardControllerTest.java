@@ -43,13 +43,16 @@ class DashboardControllerTest {
         DashboardResponse dashboard = new DashboardResponse(
                 fromDate,
                 toDate,
+                "database-session",
                 new DashboardResponse.PlatformSummary(3, 2, 1),
                 new DashboardResponse.BusinessOwnerStatistics(3, 2, 1, 1),
                 new DashboardResponse.OrganizationStatistics(2, 2, 0, 1),
+                new DashboardResponse.AdminAccountStatistics(1, 1, 0),
                 List.of(new DashboardResponse.PlatformActivity(
-                        "BUSINESS_OWNER", 3, "Alex Doe", "REGISTERED", LocalDateTime.of(2026, 10, 2, 10, 0)))
+                        "BUSINESS_OWNER", 3, "Alex Doe", "REGISTERED", LocalDateTime.of(2026, 10, 2, 10, 0))),
+                1, 0, 20
         );
-        Mockito.when(dashboardService.getDashboard(fromDate, toDate)).thenReturn(dashboard);
+        Mockito.when(dashboardService.getDashboard(fromDate, toDate, 0, 20)).thenReturn(dashboard);
 
         mockMvc.perform(get("/api/admin/dashboard")
                         .param("fromDate", "2026-10-01")
@@ -71,6 +74,14 @@ class DashboardControllerTest {
     @WithMockUser(roles = "SUPER_ADMIN")
     void rejectsIncompleteDateRange() throws Exception {
         mockMvc.perform(get("/api/admin/dashboard").param("fromDate", "2026-10-01"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                        .param("fromDate", "2026-10-16")
+                        .param("toDate", "2026-10-15"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/admin/dashboard").param("size", "101"))
                 .andExpect(status().isBadRequest());
 
         Mockito.verifyNoInteractions(dashboardService);

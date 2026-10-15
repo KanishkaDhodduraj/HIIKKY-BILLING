@@ -15,13 +15,25 @@ public class DashboardService {
         this.dashboardRepository = dashboardRepository;
     }
 
-    public DashboardResponse getDashboard(LocalDate fromDate, LocalDate toDate) {
+    public DashboardResponse getDashboard(LocalDate fromDate, LocalDate toDate, int page, int size) {
         if ((fromDate == null) != (toDate == null)) {
             throw new IllegalArgumentException("Both fromDate and toDate must be provided together");
         }
         if (fromDate != null && fromDate.isAfter(toDate)) {
             throw new IllegalArgumentException("fromDate must be on or before toDate");
         }
-        return dashboardRepository.getDashboard(fromDate, toDate);
+        if (page < 0) {
+            throw new IllegalArgumentException("Activity page index must not be negative");
+        }
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("Activity page size must be between 1 and 100");
+        }
+        int offset;
+        try {
+            offset = Math.multiplyExact(page, size);
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Activity page is too large", exception);
+        }
+        return dashboardRepository.getDashboard(fromDate, toDate, offset, size);
     }
 }

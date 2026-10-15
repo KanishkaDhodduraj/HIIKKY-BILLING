@@ -228,7 +228,8 @@ class HiikkyAdminBackendApplicationTests {
 		mockMvc.perform(post("/api/admin/auth/logout")
 						.session(session))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.success").value(true));
+				.andExpect(jsonPath("$.success").value(true))
+				.andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
 
 		assertTrue(session.isInvalid(), "HTTP session should be invalidated after logout");
 
@@ -568,6 +569,19 @@ class HiikkyAdminBackendApplicationTests {
 				.andReturn();
 		long orgId = objectMapper.readTree(orgRes.getResponse().getContentAsString()).get("data").get("id").asLong();
 
+		mockMvc.perform(get("/api/admin/business-owners")
+						.session(session)
+						.param("organizationId", String.valueOf(orgId))
+						.param("status", "ACTIVE")
+						.param("search", "Alice")
+						.param("sortBy", "email")
+						.param("sortDirection", "DESC"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Total-Count", "1"))
+				.andExpect(jsonPath("$.data", hasSize(1)))
+				.andExpect(jsonPath("$.data[0].email").value(owner1Email))
+				.andExpect(jsonPath("$.data[0].organizations[0].id").value(orgId));
+
 		// 3. Duplicate checks
 		CreateOrganizationRequest dupNameReq = new CreateOrganizationRequest(orgName, null, "unique_" + System.currentTimeMillis() + "@test.com", null, null);
 		mockMvc.perform(post("/api/admin/organizations")
@@ -678,8 +692,94 @@ class HiikkyAdminBackendApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.fromDate").value(today))
 				.andExpect(jsonPath("$.data.toDate").value(today))
+				.andExpect(jsonPath("$.data.adminAccounts.enabled", greaterThanOrEqualTo(1)))
+				.andExpect(jsonPath("$.data.recentActivityPage").value(0))
+				.andExpect(jsonPath("$.data.recentActivitySize").value(20))
 				.andExpect(jsonPath("$.data.platformSummary.businessOwnerCount", greaterThanOrEqualTo(1)))
 				.andExpect(jsonPath("$.data.businessOwners.registeredInRange", greaterThanOrEqualTo(1)))
 				.andExpect(jsonPath("$.data.recentActivity[0].displayName").value("Dashboard Owner"));
+
+		mockMvc.perform(get("/api/admin/analytics/registrations")
+						.session(session)
+						.param("fromDate", today)
+						.param("toDate", today)
+						.param("groupBy", "MONTH"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.groupBy").value("MONTH"))
+				.andExpect(jsonPath("$.data.summary.businessOwnerRegistrations", greaterThanOrEqualTo(1)))
+				.andExpect(jsonPath("$.data.periods[0].periodStart").value(today.substring(0, 7) + "-01"));
+
+		mockMvc.perform(get("/api/admin/dashboard")
+						.session(session)
+						.param("fromDate", "2099-01-01")
+						.param("toDate", "2099-01-31"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.businessOwners.registeredInRange").value(0))
+				.andExpect(jsonPath("$.data.recentActivity", hasSize(0)))
+				.andExpect(jsonPath("$.data.recentActivityTotal").value(0));
+
+		mockMvc.perform(get("/api/admin/analytics/registrations")
+						.session(session)
+						.param("fromDate", "2099-01-01")
+						.param("toDate", "2099-01-31"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.periods", hasSize(0)))
+				.andExpect(jsonPath("$.data.summary.organizationRegistrations").value(0));
+	}
+
+	@Test
+	void adminCanUpdateOwnProfileAfterPasswordVerification() throws Exception {
+		String originalEmail = "profile_" + System.currentTimeMillis() + "@test.com";
+		AdminAccount account = new AdminAccount();
+		account.setEmail(originalEmail);
+		account.setPasswordHash(passwordEncoder.encode("ProfilePassword123"));
+		account.setRole(AdminRole.ADMIN);
+		account.setEnabled(true);
+		adminAccountRepository.save(account);
+
+		LoginRequest loginRequest = new LoginRequest(originalEmail, "ProfilePassword123");
+		var loginResult = mockMvc.perform(post("/api/admin/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(loginRequest)))
+				.andExpect(status().isOk())
+				.andReturn();
+		var session = (org.springframework.mock.web.MockHttpSession) loginResult.getRequest().getSession();
+
+		mockMvc.perform(get("/api/admin/profile").session(session))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.email").value(originalEmail))
+				.andExpect(jsonPath("$.data.role").value("ADMIN"))
+				.andExpect(jsonPath("$.data.passwordHash").doesNotExist());
+
+		mockMvc.perform(patch("/api/admin/profile")
+						.session(session)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"currentPassword":"wrong-password","email":"changed@example.com"}
+								"""))
+				.andExpect(status().isUnauthorized());
+
+		String changedEmail = "profile_changed_" + System.currentTimeMillis() + "@test.com";
+		mockMvc.perform(patch("/api/admin/profile")
+						.session(session)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(java.util.Map.of(
+								"currentPassword", "ProfilePassword123",
+								"email", changedEmail,
+								"newPassword", "ChangedPassword456"))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.email").value(changedEmail))
+				.andExpect(jsonPath("$.data.role").value("ADMIN"))
+				.andExpect(jsonPath("$.data.passwordHash").doesNotExist());
+
+		mockMvc.perform(get("/api/admin/profile").session(session))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.email").value(changedEmail));
+
+		mockMvc.perform(post("/api/admin/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new LoginRequest(changedEmail, "ChangedPassword456"))))
+				.andExpect(status().isOk());
 	}
 }

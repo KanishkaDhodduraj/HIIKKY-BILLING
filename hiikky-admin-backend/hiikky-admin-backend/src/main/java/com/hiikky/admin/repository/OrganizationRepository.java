@@ -30,6 +30,8 @@ public interface OrganizationRepository {
 
     List<Organization> findByOwnerId(Long ownerId);
 
+    List<Organization> findByOwnerIds(List<Long> ownerIds);
+
     long countByOwnerId(Long ownerId);
 
     long count();

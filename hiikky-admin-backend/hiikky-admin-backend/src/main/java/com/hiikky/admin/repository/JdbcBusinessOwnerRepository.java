@@ -1,7 +1,9 @@
 package com.hiikky.admin.repository;
 
 import com.hiikky.admin.model.BusinessOwner;
+import com.hiikky.admin.model.BusinessOwnerSortField;
 import com.hiikky.admin.model.OwnerStatus;
+import com.hiikky.admin.model.SortDirection;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -137,6 +139,11 @@ public class JdbcBusinessOwnerRepository implements BusinessOwnerRepository {
 
     @Override
     public long countWithFilters(OwnerStatus status, String search) {
+        return countWithFilters(status, search, null);
+    }
+
+    @Override
+    public long countWithFilters(OwnerStatus status, String search, Long organizationId) {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM business_owners");
         List<Object> params = new ArrayList<>();
         List<String> conditions = new ArrayList<>();
@@ -153,6 +160,10 @@ public class JdbcBusinessOwnerRepository implements BusinessOwnerRepository {
             params.add(pattern);
             params.add(pattern);
         }
+        if (organizationId != null) {
+            conditions.add("EXISTS (SELECT 1 FROM organizations o WHERE o.owner_id = business_owners.id AND o.id = ?)");
+            params.add(organizationId);
+        }
         if (!conditions.isEmpty()) {
             sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
@@ -163,6 +174,13 @@ public class JdbcBusinessOwnerRepository implements BusinessOwnerRepository {
 
     @Override
     public List<BusinessOwner> findAll(int offset, int limit, OwnerStatus status, String search) {
+        return findAll(offset, limit, status, search, null, BusinessOwnerSortField.ID, SortDirection.ASC);
+    }
+
+    @Override
+    public List<BusinessOwner> findAll(
+            int offset, int limit, OwnerStatus status, String search, Long organizationId,
+            BusinessOwnerSortField sortField, SortDirection sortDirection) {
         StringBuilder sql = new StringBuilder("SELECT id, first_name, last_name, email, phone, status, created_at, updated_at FROM business_owners");
         List<Object> params = new ArrayList<>();
         List<String> conditions = new ArrayList<>();
@@ -179,11 +197,16 @@ public class JdbcBusinessOwnerRepository implements BusinessOwnerRepository {
             params.add(pattern);
             params.add(pattern);
         }
+        if (organizationId != null) {
+            conditions.add("EXISTS (SELECT 1 FROM organizations o WHERE o.owner_id = business_owners.id AND o.id = ?)");
+            params.add(organizationId);
+        }
         if (!conditions.isEmpty()) {
             sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
 
-        sql.append(" ORDER BY id LIMIT ? OFFSET ?");
+        sql.append(" ORDER BY ").append(sortField.getColumn()).append(' ').append(sortDirection.name())
+                .append(", id ASC LIMIT ? OFFSET ?");
         params.add(limit);
         params.add(offset);
 
