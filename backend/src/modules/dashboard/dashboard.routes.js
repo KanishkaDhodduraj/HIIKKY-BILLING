@@ -1,0 +1,1 @@
+import{Router}from'express';import{requireRole}from'../../middleware/authorization.js';import{dashboardController}from'./dashboard.controller.js';const r=Router();r.get('/',requireRole('ADMIN','SUPER_ADMIN'),dashboardController.dashboard);r.get('/analytics/registrations',requireRole('SUPER_ADMIN'),dashboardController.analytics);export default r;

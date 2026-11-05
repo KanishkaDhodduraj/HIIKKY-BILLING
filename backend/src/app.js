@@ -9,6 +9,8 @@ import authRoutes from './modules/auth/auth.routes.js';
 import accountRoutes from './modules/accounts/accounts.routes.js';
 import ownerRoutes from './modules/owners/owners.routes.js';
 import organizationRoutes from './modules/organizations/organizations.routes.js';
+import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import { businessRequestsAdminRoutes, businessRequestsPublicRoutes } from './modules/businessRequests/businessRequests.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express(); app.disable('x-powered-by');
@@ -20,5 +22,8 @@ export function createApp({ sessionStore } = {}) {
   app.use('/api/admin/accounts', accountRoutes);
   app.use('/api/admin/business-owners', ownerRoutes);
   app.use('/api/admin/organizations', organizationRoutes);
+  app.use('/api/admin/dashboard', dashboardRoutes);
+  app.use('/api/admin/business-requests', businessRequestsAdminRoutes);
+  app.use('/api/organization-registration-applications', businessRequestsPublicRoutes);
   app.use(notFound); app.use(errorHandler); return app;
 }
