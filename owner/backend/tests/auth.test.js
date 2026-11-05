@@ -2,12 +2,15 @@ import mongoose from 'mongoose';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
+import { jest } from '@jest/globals';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createApp } from '../src/app.js';
 import BusinessOwner from '../src/models/BusinessOwner.js';
 import Organization from '../src/models/Organization.js';
 import Subscriber from '../src/models/Subscriber.js';
 import BusinessRequest from '../src/models/BusinessRequest.js';
+import OwnerSetting from '../src/models/OwnerSetting.js';
+import { mailService } from '../src/modules/auth/mail.service.js';
 
 let repl;
 let app;
@@ -18,7 +21,7 @@ beforeAll(async () => {
   app = createApp();
   server = app.listen(0);
 }, 120000);
-afterEach(async () => { await BusinessOwner.deleteMany({}); await Organization.deleteMany({}); await Subscriber.deleteMany({}); await BusinessRequest.deleteMany({}); });
+afterEach(async () => { await BusinessOwner.deleteMany({}); await Organization.deleteMany({}); await Subscriber.deleteMany({}); await BusinessRequest.deleteMany({}); await OwnerSetting.deleteMany({}); });
 afterAll(async () => { await new Promise((resolve) => server?.close(resolve)); await mongoose.disconnect(); await repl?.stop(); });
 
 async function csrf(agent) {
@@ -108,4 +111,24 @@ test('public owner registration stores the details and allows a minimal status l
   expect(status.status).toBe(200);
   expect(status.body.data).toMatchObject({ id: registration.body.data.id, status: 'PENDING', ownerCreated: false });
   expect(status.body.data.ownerEmail).toBeUndefined();
+});
+
+test('two-factor login requires a one-time email code before granting owner access', async () => {
+  const owner = await BusinessOwner.create({ firstName: 'Two Factor', email: '2fa@owner.test', passwordHash: await bcrypt.hash('StrongPassword123', 4), passwordSetAt: new Date() });
+  const organization = await Organization.create({ name: 'Two Factor School', email: '2fa@school.test', ownerId: owner._id });
+  await OwnerSetting.create({ organizationId: organization._id, security: { twoFactorEnabled: true } });
+  let sentCode;
+  const mail = jest.spyOn(mailService, 'sendLoginCode').mockImplementation(async ({ code }) => { sentCode = code; });
+  try {
+    const agent = request.agent(server);
+    const csrfToken = await csrf(agent);
+    const login = await agent.post('/api/owner/auth/login').set('X-CSRF-TOKEN', csrfToken).send({ email: owner.email, password: 'StrongPassword123' });
+    expect(login.status).toBe(200);
+    expect(login.body.data.requiresOtp).toBe(true);
+    expect((await agent.get('/api/owner/profile')).status).toBe(401);
+    const verified = await agent.post('/api/owner/auth/verify-otp').set('X-CSRF-TOKEN', login.body.data.csrfToken).send({ code: sentCode });
+    expect(verified.status).toBe(200);
+    expect((await agent.get('/api/owner/profile')).status).toBe(200);
+    expect((await agent.post('/api/owner/auth/verify-otp').set('X-CSRF-TOKEN', verified.body.data.csrfToken).send({ code: sentCode })).status).toBe(401);
+  } finally { mail.mockRestore(); }
 });

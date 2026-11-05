@@ -18,9 +18,27 @@ export const ownerAuthController = {
       const result = await ownerAuthService.login(email, password);
       if (!result) throw Object.assign(new Error('Invalid email or password'), { status: 401 });
       await new Promise((resolve, reject) => req.session.regenerate((error) => error ? reject(error) : resolve()));
+      req.session.cookie.maxAge = result.autoLogoutMinutes * 60 * 1000;
+      if (result.twoFactorEnabled) {
+        req.session.pendingOwner = { id: String(result.owner._id), organizationIds: result.organizations, organizationId: result.organizationId };
+        const code = await ownerAuthService.issueLoginCode(result.organizationId);
+        await mailService.sendLoginCode({ email: result.owner.email, code });
+        return apiResponse(res, { message: 'Verification code sent', data: { requiresOtp: true, email: result.owner.email, csrfToken: req.csrfToken(true) } });
+      }
       req.session.owner = { ...safeOwner(result.owner), organizationIds: result.organizations };
-      const token = req.csrfToken();
-      return apiResponse(res, { message: 'Login successful', data: { ...safeOwner(result.owner), csrfToken: token } });
+      return apiResponse(res, { message: 'Login successful', data: { ...safeOwner(result.owner), csrfToken: req.csrfToken(true) } });
+    } catch (error) { next(error); }
+  },
+  async verifyOtp(req, res, next) {
+    try {
+      const { code } = z.object({ code: z.string().regex(/^\d{6}$/) }).parse(req.body);
+      const pending = req.session.pendingOwner;
+      if (!pending) throw Object.assign(new Error('Login verification has expired'), { status: 401 });
+      await ownerAuthService.verifyLoginCode(pending.organizationId, code);
+      const owner = await ownerAuthService.safeProfile(pending.id);
+      req.session.owner = { ...safeOwner(owner), organizationIds: pending.organizationIds };
+      delete req.session.pendingOwner;
+      return apiResponse(res, { message: 'Login successful', data: { ...safeOwner(owner), csrfToken: req.csrfToken() } });
     } catch (error) { next(error); }
   },
   async logout(req, res, next) {
@@ -56,6 +74,7 @@ export const ownerAuthController = {
       const input = z.object({ currentPassword: z.string().min(1), firstName: z.string().trim().min(1).max(100).optional(), lastName: z.string().max(100).optional(), email: z.string().email().max(255).optional(), phone: z.string().max(50).optional(), newPassword: newPassword.optional() }).refine((value) => value.firstName || value.lastName !== undefined || value.email || value.phone !== undefined || value.newPassword, 'At least one field to update is required').parse(req.body);
       const owner = await BusinessOwner.findById(req.session.owner.id).select('+passwordHash');
       if (!owner || !owner.passwordHash || !(await bcrypt.compare(input.currentPassword, owner.passwordHash))) throw Object.assign(new Error('Current password is incorrect'), { status: 401 });
+      if (input.newPassword) await ownerAuthService.assertPasswordStrength(owner._id, input.newPassword);
       for (const key of ['firstName', 'lastName', 'phone']) if (input[key] !== undefined) owner[key] = input[key];
       if (input.email) owner.email = input.email.toLowerCase();
       if (input.newPassword) { owner.passwordHash = await bcrypt.hash(input.newPassword, 12); owner.passwordSetAt = new Date(); }

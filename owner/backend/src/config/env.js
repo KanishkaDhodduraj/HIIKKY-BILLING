@@ -9,9 +9,11 @@ export const env = {
   mailFrom: process.env.MAIL_FROM || 'onboarding@hiikky.local',
   passwordResetBaseUrl: process.env.PASSWORD_RESET_BASE_URL || 'http://localhost:5174/owner/set-password',
   timezone: process.env.APP_TIMEZONE || 'Asia/Calcutta',
+  settingsEncryptionKey: process.env.SETTINGS_ENCRYPTION_KEY,
 };
 
 export function validateEnv() {
   if (!env.mongoUri) throw new Error('MONGODB_URI is required');
   if (!env.sessionSecret || env.sessionSecret.length < 32) throw new Error('SESSION_SECRET must contain at least 32 characters');
+  if (!env.settingsEncryptionKey || env.settingsEncryptionKey.length < 32) throw new Error('SETTINGS_ENCRYPTION_KEY must contain at least 32 characters');
 }
