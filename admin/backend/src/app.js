@@ -15,6 +15,7 @@ import { businessRequestsAdminRoutes, businessRequestsPublicRoutes } from './mod
 import settingsRoutes from './modules/settings/settings.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import reportsRoutes from './modules/reports/reports.routes.js';
+import gatewaysRoutes from './modules/gateways/gateways.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express(); app.disable('x-powered-by');
@@ -34,6 +35,7 @@ export function createApp({ sessionStore } = {}) {
   app.use('/api/admin/settings', settingsRoutes);
   app.use('/api/admin/notifications', notificationsRoutes);
   app.use('/api/admin/reports', reportsRoutes);
+  app.use('/api/admin/gateways', gatewaysRoutes);
   app.use('/api/organization-registration-applications', businessRequestsPublicRoutes);
   app.use(notFound); app.use(errorHandler); return app;
 }
