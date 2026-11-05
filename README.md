@@ -9,7 +9,7 @@ HIIKKY is a subscription and billing administration system for e-learning busine
 
 ## Setup and run
 
-Start MongoDB as a replica set. Copy `admin/backend/.env.example` to `admin/backend/.env` and set `MONGODB_URI`, a random `SESSION_SECRET` of at least 32 characters, `ADMIN_BOOTSTRAP_SECRET` (at least 32 characters), and `CLIENT_ORIGIN`.
+Start MongoDB as a replica set. Copy `admin/backend/.env.example` to `admin/backend/.env` and set `MONGODB_URI`, a random `SESSION_SECRET` of at least 32 characters, a separate random `GATEWAY_ENCRYPTION_KEY` of at least 32 characters, `ADMIN_BOOTSTRAP_SECRET` (at least 32 characters), and `CLIENT_ORIGIN`.
 
 ```sh
 cd admin/backend
