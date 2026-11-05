@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   phone: { type: String, default: '', maxlength: 50 },
   startDate: { type: Date, default: Date.now }, endDate: { type: Date, default: null },
   status: { type: String, enum: ['ACTIVE', 'TRIALING', 'SUSPENDED', 'INACTIVE'], default: 'ACTIVE' },
+  autoPayEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 schema.index({ organizationId: 1, email: 1 }, { unique: true });
 schema.index({ organizationId: 1, status: 1, createdAt: -1 });

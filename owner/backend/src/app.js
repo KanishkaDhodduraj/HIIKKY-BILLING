@@ -22,7 +22,7 @@ import settingsRoutes from './modules/settings/settings.routes.js';
 export function createApp({ sessionStore } = {}) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(cors({ origin: env.clientOrigin, credentials: true, allowedHeaders: ['Content-Type', 'X-CSRF-TOKEN'] }));
+  app.use(cors({ origin: env.clientOrigin, credentials: true, allowedHeaders: ['Content-Type', 'X-CSRF-TOKEN'], exposedHeaders: ['X-Total-Count', 'X-Page-Number', 'X-Page-Size'] }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(session({
