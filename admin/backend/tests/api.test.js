@@ -42,6 +42,7 @@ describe('admin session and roles', () => {
 });
 
 describe('search, pagination and request decision', () => {
+  test('dashboard and analytics aggregate current registration records',async()=>{const agent=await loggedIn();await BusinessOwner.create({firstName:'Ava',email:'ava.dashboard@example.com'});const dashboard=await agent.get('/api/admin/dashboard').query({page:0,size:10});expect(dashboard.status).toBe(200);expect(dashboard.body.data.businessOwners.total).toBe(1);expect(dashboard.body.data.recentActivity).toHaveLength(2);const day=new Date().toISOString().slice(0,10);const analytics=await agent.get('/api/admin/analytics/registrations').query({fromDate:day,toDate:day,groupBy:'DAY'});expect(analytics.status).toBe(200);expect(analytics.body.data.summary.businessOwnerRegistrations).toBe(1);expect(analytics.body.data.periods[0].period).toBe(day);});
   test('escapes query text, filters partial search and sets pagination headers', async () => {
     const agent = await loggedIn();
     await BusinessOwner.create([{ firstName: 'Ava', email: 'ava@example.com' }, { firstName: 'Eva', email: 'eva@example.com' }]);

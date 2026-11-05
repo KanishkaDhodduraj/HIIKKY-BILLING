@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 const links = [
   ['Dashboard','/admin/dashboard',LayoutDashboard],['Business Owners','/admin/owners',Users,'SUPER_ADMIN'],['Business Requests','/admin/business-requests',Inbox],
-  ['Platform Plans','/admin/plans',Building2],['Payment Gateway','/admin/payment-gateway',CreditCard],['Platform Analytics','/admin/analytics',ChartNoAxesCombined],['Revenue','/admin/revenue',BadgeDollarSign],['Support Center','/admin/support',Headset],['Notifications','/admin/notifications',Bell],['Reports','/admin/reports',FileBarChart],['Settings','/admin/settings',Settings,'SUPER_ADMIN'],['Profile','/admin/profile',ShieldCheck],
+  ['Platform Plans','/admin/plans',Building2,'SUPER_ADMIN'],['Payment Gateway','/admin/payment-gateway',CreditCard,'SUPER_ADMIN'],['Platform Analytics','/admin/analytics',ChartNoAxesCombined,'SUPER_ADMIN'],['Revenue','/admin/revenue',BadgeDollarSign,'SUPER_ADMIN'],['Support Center','/admin/support',Headset,'SUPER_ADMIN'],['Notifications','/admin/notifications',Bell,'SUPER_ADMIN'],['Reports','/admin/reports',FileBarChart,'SUPER_ADMIN'],['Settings','/admin/settings',Settings,'SUPER_ADMIN'],['Profile','/admin/profile',ShieldCheck],
 ];
 export default function AdminLayout(){
   const {user,logout}=useAuth(),navigate=useNavigate(),location=useLocation();const[menu,setMenu]=useState(false),[search,setSearch]=useState(new URLSearchParams(location.search).get('search')||'');
