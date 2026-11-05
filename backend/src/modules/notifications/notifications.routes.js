@@ -1,0 +1,1 @@
+import{Router}from'express';import{requireRole}from'../../middleware/authorization.js';import{notificationsController as c}from'./notifications.controller.js';const r=Router();r.use(requireRole('SUPER_ADMIN'));r.get('/',c.list);r.get('/:id',c.get);export default r;

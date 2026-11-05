@@ -1,0 +1,1 @@
+import{Router}from'express';import{requireRole}from'../../middleware/authorization.js';import{reportsController as c}from'./reports.controller.js';const r=Router();r.use(requireRole('SUPER_ADMIN'));r.get('/business-owners',c.owners);r.get('/organizations',c.organizations);r.get('/business-owners.csv',c.ownersCsv);r.get('/organizations.csv',c.organizationsCsv);export default r;

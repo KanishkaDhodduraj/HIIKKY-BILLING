@@ -1,0 +1,1 @@
+import{Router}from'express';import{requireRole}from'../../middleware/authorization.js';import{csrfProtection}from'../auth/auth.routes.js';import{settingsController as c}from'./settings.controller.js';const r=Router();r.use(requireRole('SUPER_ADMIN'));r.get('/public-registration-rate-limit',c.get);r.put('/public-registration-rate-limit',csrfProtection,c.update);export default r;
