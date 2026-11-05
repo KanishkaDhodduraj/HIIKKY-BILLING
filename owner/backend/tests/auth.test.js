@@ -6,6 +6,7 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createApp } from '../src/app.js';
 import BusinessOwner from '../src/models/BusinessOwner.js';
 import Organization from '../src/models/Organization.js';
+import Subscriber from '../src/models/Subscriber.js';
 
 let repl;
 let app;
@@ -16,7 +17,7 @@ beforeAll(async () => {
   app = createApp();
   server = app.listen(0);
 }, 120000);
-afterEach(async () => { await BusinessOwner.deleteMany({}); await Organization.deleteMany({}); });
+afterEach(async () => { await BusinessOwner.deleteMany({}); await Organization.deleteMany({}); await Subscriber.deleteMany({}); });
 afterAll(async () => { await new Promise((resolve) => server?.close(resolve)); await mongoose.disconnect(); await repl?.stop(); });
 
 async function csrf(agent) {
@@ -64,4 +65,31 @@ test('hashed set-password links are one use and expire after setting a password'
   expect(saved.body.data.passwordHash).toBeUndefined();
   expect((await BusinessOwner.findById(owner._id).select('+passwordHash +setPasswordTokenHash')).setPasswordTokenHash).toBeNull();
   expect((await agent.post('/api/owner/auth/set-password').set('X-CSRF-TOKEN', csrfToken).send({ token, password: 'Another-Strong-Password-123' })).status).toBe(400);
+});
+
+test('tenant scope comes from the login session; foreign records return 404 and cannot be reassigned', async () => {
+  const [ownerA, ownerB] = await BusinessOwner.create([
+    { firstName: 'Owner A', email: 'a@owner.test', passwordHash: await bcrypt.hash('StrongPassword123', 4), passwordSetAt: new Date() },
+    { firstName: 'Owner B', email: 'b@owner.test', passwordHash: await bcrypt.hash('StrongPassword123', 4), passwordSetAt: new Date() },
+  ]);
+  const [orgA, orgB] = await Organization.create([
+    { name: 'Tenant A', email: 'a@tenant.test', ownerId: ownerA._id },
+    { name: 'Tenant B', email: 'b@tenant.test', ownerId: ownerB._id },
+  ]);
+  const [ownSubscriber, foreignSubscriber] = await Subscriber.create([
+    { organizationId: orgA._id, fullName: 'Own Student', email: 'own@student.test' },
+    { organizationId: orgB._id, fullName: 'Foreign Student', email: 'foreign@student.test' },
+  ]);
+  const agent = request.agent(server);
+  const csrfToken = await csrf(agent);
+  const login = await agent.post('/api/owner/auth/login').set('X-CSRF-TOKEN', csrfToken).send({ email: ownerA.email, password: 'StrongPassword123' });
+  const ownList = await agent.get('/api/owner/subscribers').query({ organizationId: String(orgB._id), search: 'Student' });
+  expect(ownList.status).toBe(200);
+  expect(ownList.body.data.map((row) => row.id)).toEqual([String(ownSubscriber._id)]);
+  expect((await agent.get(`/api/owner/subscribers/${foreignSubscriber._id}`)).status).toBe(404);
+  const create = await agent.post('/api/owner/subscribers').set('X-CSRF-TOKEN', login.body.data.csrfToken).send({ organizationId: String(orgB._id), fullName: 'New Student', email: 'new@student.test' });
+  expect(create.status).toBe(201);
+  expect(create.body.data.organizationId).toBe(String(orgA._id));
+  expect((await agent.put(`/api/owner/subscribers/${foreignSubscriber._id}`).set('X-CSRF-TOKEN', login.body.data.csrfToken).send({ fullName: 'Hijacked' })).status).toBe(404);
+  expect((await agent.delete(`/api/owner/subscribers/${foreignSubscriber._id}`).set('X-CSRF-TOKEN', login.body.data.csrfToken)).status).toBe(404);
 });
