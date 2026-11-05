@@ -1,51 +1,49 @@
 # HIIKKY
 
-HIIKKY is a subscription and billing administration system for e-learning businesses. The current web migration uses an Express/MongoDB API and a React admin console for `ADMIN` and `SUPER_ADMIN` accounts.
+HIIKKY is a subscription and billing administration system for e-learning businesses. The admin web application is split into two projects under `admin/`: an Express/MongoDB API and a React console for `ADMIN` and `SUPER_ADMIN` accounts.
 
 ## Requirements
 
 - Node.js 20+
-- MongoDB replica set (transactions are used by bootstrap and business-request approval)
+- MongoDB replica set (bootstrap and business-request approval use transactions)
 
-## Setup
+## Setup and run
 
-1. Start a local MongoDB replica set and copy `backend/.env.example` to `backend/.env`.
-2. Set `MONGODB_URI`, a random `SESSION_SECRET` of at least 32 characters, the one-time `ADMIN_BOOTSTRAP_SECRET` (at least 32 characters), and `CLIENT_ORIGIN`.
-3. Install and start each app:
+Start MongoDB as a replica set. Copy `admin/backend/.env.example` to `admin/backend/.env` and set `MONGODB_URI`, a random `SESSION_SECRET` of at least 32 characters, `ADMIN_BOOTSTRAP_SECRET` (at least 32 characters), and `CLIENT_ORIGIN`.
 
 ```sh
-cd backend
+cd admin/backend
 npm install
 npm run dev
 ```
 
-In a second terminal:
+In another terminal:
 
 ```sh
-cd frontend
+cd admin/frontend
 npm install
 npm run dev
 ```
 
-The API listens on `http://localhost:4000`; Vite serves the console on `http://localhost:5173`. Fetch a CSRF token from `GET /api/admin/auth/csrf` before mutations. The first Super Admin is created using `POST /api/admin/auth/setup/first-super-admin`, the CSRF header, and `X-Admin-Bootstrap-Secret`. Remove the bootstrap secret from the environment after setup.
+The API listens on `http://localhost:5000`; Vite serves the console on `http://localhost:5173`. To change the API URL, copy `admin/frontend/.env.example` to `admin/frontend/.env`. Fetch a CSRF token from `GET /api/admin/auth/csrf` before mutations. Create the first Super Admin using `POST /api/admin/setup/first-super-admin`, the CSRF header, and `X-Admin-Bootstrap-Secret`, then remove the bootstrap secret from the environment.
 
-An optional local admin seed can be created with `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` (minimum 12 characters), then `npm run seed` from `backend`.
+To seed a local Super Admin, set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` (minimum 12 characters), then run `npm run seed` from `admin/backend`.
 
 ## Project layout
 
 ```text
-backend/       Express, Mongoose, sessions, APIs, seed script
-frontend/      React, Vite, Tailwind admin application
-legacy-java/   Preserved Spring Boot admin source
-docs/          API contract and implementation notes
+admin/backend/    Express, Mongoose, sessions, APIs, seed script
+admin/frontend/   React, Vite, Tailwind admin application
+legacy-java/      Preserved Spring Boot admin source
+docs/             API contract and implementation notes
 organization-owner-console/  Preserved legacy console (out of migration scope)
 ```
 
-The API follows `routes -> controller -> service -> repository/model` module boundaries. Admin route details and the preserved business rules are in [docs/admin-api-reference.md](docs/admin-api-reference.md). Platform revenue and the support center remain out of scope because the legacy data does not define their source or rules.
+The backend uses route, controller, service, and model layers. Admin route details and preserved business rules are in [docs/admin-api-reference.md](docs/admin-api-reference.md). Platform revenue and the support center remain outside the documented backend scope.
 
 ## Validation
 
 ```sh
-cd backend && npm test
-cd frontend && npm run build
+cd admin/backend && npm test
+cd admin/frontend && npm run build
 ```
