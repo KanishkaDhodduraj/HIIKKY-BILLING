@@ -1,0 +1,7 @@
+import { Router } from 'express';
+import { requireRole } from '../../middleware/authorization.js';
+import { csrfProtection } from '../auth/auth.routes.js';
+import { accountsController as c } from './accounts.controller.js';
+const r = Router(); r.use(requireRole('SUPER_ADMIN'));
+r.get('/', c.list); r.post('/', csrfProtection, c.create); r.get('/:id', c.get); r.put('/:id', csrfProtection, c.update); r.patch('/:id/status', csrfProtection, c.status); r.patch('/:id/activate', csrfProtection, c.activate); r.patch('/:id/deactivate', csrfProtection, c.deactivate); r.delete('/:id', csrfProtection, c.remove);
+export default r;
