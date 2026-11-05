@@ -15,6 +15,7 @@ import courseInstallmentRoutes from './modules/courses/installments.routes.js';
 import discountsRoutes from './modules/discounts/discounts.routes.js';
 import billingRoutes from './modules/billing/billing.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import registrationsRoutes from './modules/registrations/registrations.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express();
@@ -32,6 +33,7 @@ export function createApp({ sessionStore } = {}) {
   }));
   app.get('/health', (_req, res) => apiResponse(res, { data: { status: 'ok', app: 'owner' } }));
   app.use('/api/owner/auth', authRoutes);
+  app.use('/api/owner/registrations', registrationsRoutes);
   app.use('/api/owner', profileRoutes);
   app.use('/api/owner/dashboard', ...[requireOwner], dashboardRoutes);
   app.use('/api/owner/analytics', ...[requireOwner], dashboardRoutes);

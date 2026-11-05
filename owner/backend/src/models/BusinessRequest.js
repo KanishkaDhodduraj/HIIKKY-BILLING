@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   organizationPhone: String, organizationAddress: String,
   industry: { type: String, default: '' }, projectedStudentCount: { type: Number, min: 0 }, operatingRegion: { type: String, default: '' },
   subscriptionTier: { type: String, default: '' }, documents: [{ name: String, url: String }], documentsSkipped: { type: Boolean, default: true },
+  termsAcceptedAt: { type: Date, default: null },
   pendingKey: String, status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
   decisionReason: String, decidedAt: Date, decidedByAdminId: mongoose.Schema.Types.ObjectId,
   createdOwnerId: mongoose.Schema.Types.ObjectId, createdOrganizationId: mongoose.Schema.Types.ObjectId,

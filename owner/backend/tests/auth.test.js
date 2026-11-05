@@ -7,6 +7,7 @@ import { createApp } from '../src/app.js';
 import BusinessOwner from '../src/models/BusinessOwner.js';
 import Organization from '../src/models/Organization.js';
 import Subscriber from '../src/models/Subscriber.js';
+import BusinessRequest from '../src/models/BusinessRequest.js';
 
 let repl;
 let app;
@@ -17,7 +18,7 @@ beforeAll(async () => {
   app = createApp();
   server = app.listen(0);
 }, 120000);
-afterEach(async () => { await BusinessOwner.deleteMany({}); await Organization.deleteMany({}); await Subscriber.deleteMany({}); });
+afterEach(async () => { await BusinessOwner.deleteMany({}); await Organization.deleteMany({}); await Subscriber.deleteMany({}); await BusinessRequest.deleteMany({}); });
 afterAll(async () => { await new Promise((resolve) => server?.close(resolve)); await mongoose.disconnect(); await repl?.stop(); });
 
 async function csrf(agent) {
@@ -92,4 +93,19 @@ test('tenant scope comes from the login session; foreign records return 404 and 
   expect(create.body.data.organizationId).toBe(String(orgA._id));
   expect((await agent.put(`/api/owner/subscribers/${foreignSubscriber._id}`).set('X-CSRF-TOKEN', login.body.data.csrfToken).send({ fullName: 'Hijacked' })).status).toBe(404);
   expect((await agent.delete(`/api/owner/subscribers/${foreignSubscriber._id}`).set('X-CSRF-TOKEN', login.body.data.csrfToken)).status).toBe(404);
+});
+
+test('public owner registration stores the details and allows a minimal status lookup', async () => {
+  const agent = request.agent(server);
+  const csrfToken = await csrf(agent);
+  const registration = await agent.post('/api/owner/registrations').set('X-CSRF-TOKEN', csrfToken).send({ firstName: 'Leah', lastName: 'Kim', ownerEmail: 'leah@academy.test', organizationName: 'Leah Academy', organizationEmail: 'contact@leah.test', industry: 'E-Learning', projectedStudentCount: 500, operatingRegion: 'North America', subscriptionTier: 'Starter', documentsSkipped: true, termsAccepted: true });
+  expect(registration.status).toBe(201);
+  const stored = await BusinessRequest.findById(registration.body.data.id);
+  expect(stored.status).toBe('PENDING');
+  expect(stored.documentsSkipped).toBe(true);
+  expect(stored.termsAcceptedAt).toBeTruthy();
+  const status = await agent.get(`/api/owner/registrations/${registration.body.data.id}`);
+  expect(status.status).toBe(200);
+  expect(status.body.data).toMatchObject({ id: registration.body.data.id, status: 'PENDING', ownerCreated: false });
+  expect(status.body.data.ownerEmail).toBeUndefined();
 });

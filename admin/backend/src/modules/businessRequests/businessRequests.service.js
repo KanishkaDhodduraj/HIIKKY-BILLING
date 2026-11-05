@@ -2,12 +2,18 @@ import BusinessRequest from '../../models/BusinessRequest.js';
 import BusinessOwner from '../../models/BusinessOwner.js';
 import Organization from '../../models/Organization.js';
 import { createInviteCredential } from '../owners/ownerInvite.service.js';
+import { regex } from '../../utils/query.js';
 
 const keyOf = (value) => [value.ownerEmail.toLowerCase(), value.organizationName.trim().toLowerCase(), value.organizationEmail.toLowerCase()].join('|');
 
 export const requestsService = {
   async intake(input) {
     const values = { ...input, ownerEmail: input.ownerEmail.toLowerCase(), organizationEmail: input.organizationEmail.toLowerCase() };
+    const [existingOwner, existingOrganization] = await Promise.all([
+      BusinessOwner.exists({ email: values.ownerEmail }),
+      Organization.exists({ $or: [{ name: regex(values.organizationName.trim()) }, { email: values.organizationEmail }] }),
+    ]);
+    if (existingOwner || existingOrganization) throw Object.assign(new Error('A business owner or organization already uses these details'), { status: 409 });
     return BusinessRequest.create({ ...values, pendingKey: keyOf(values) });
   },
   async decide(id, decision, adminId, reason) {
