@@ -6,6 +6,7 @@ import MongoStore from 'connect-mongo';
 import { env } from './config/env.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { apiResponse } from './utils/apiResponse.js';
+import authRoutes, { profileRoutes } from './modules/auth/ownerAuth.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express();
@@ -22,6 +23,8 @@ export function createApp({ sessionStore } = {}) {
     cookie: { httpOnly: true, sameSite: 'lax', secure: env.nodeEnv === 'production', maxAge: 8 * 60 * 60 * 1000 },
   }));
   app.get('/health', (_req, res) => apiResponse(res, { data: { status: 'ok', app: 'owner' } }));
+  app.use('/api/owner/auth', authRoutes);
+  app.use('/api/owner', profileRoutes);
   app.use(notFound);
   app.use(errorHandler);
   return app;

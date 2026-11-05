@@ -8,6 +8,7 @@ export const env = {
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5174',
   mailFrom: process.env.MAIL_FROM || 'onboarding@hiikky.local',
   passwordResetBaseUrl: process.env.PASSWORD_RESET_BASE_URL || 'http://localhost:5174/owner/set-password',
+  timezone: process.env.APP_TIMEZONE || 'Asia/Calcutta',
 };
 
 export function validateEnv() {

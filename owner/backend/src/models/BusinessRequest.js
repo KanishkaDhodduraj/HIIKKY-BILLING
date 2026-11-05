@@ -1,0 +1,17 @@
+import mongoose from 'mongoose';
+
+// Registration requests share the Admin collection and include the owner form fields.
+const schema = new mongoose.Schema({
+  firstName: { type: String, required: true }, lastName: { type: String, default: '' },
+  ownerEmail: { type: String, required: true, lowercase: true }, ownerPhone: String,
+  organizationName: { type: String, required: true }, organizationEmail: { type: String, required: true, lowercase: true },
+  organizationPhone: String, organizationAddress: String,
+  industry: { type: String, default: '' }, projectedStudentCount: { type: Number, min: 0 }, operatingRegion: { type: String, default: '' },
+  subscriptionTier: { type: String, default: '' }, documents: [{ name: String, url: String }], documentsSkipped: { type: Boolean, default: true },
+  pendingKey: String, status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
+  decisionReason: String, decidedAt: Date, decidedByAdminId: mongoose.Schema.Types.ObjectId,
+  createdOwnerId: mongoose.Schema.Types.ObjectId, createdOrganizationId: mongoose.Schema.Types.ObjectId,
+  history: [{ eventType: String, actorAdminId: mongoose.Schema.Types.ObjectId, reason: String, createdOwnerId: mongoose.Schema.Types.ObjectId, createdOrganizationId: mongoose.Schema.Types.ObjectId, createdAt: { type: Date, default: Date.now } }],
+}, { timestamps: true });
+schema.index({ pendingKey: 1 }, { unique: true, partialFilterExpression: { status: 'PENDING', pendingKey: { $type: 'string' } } });
+export default mongoose.model('BusinessRequest', schema);
