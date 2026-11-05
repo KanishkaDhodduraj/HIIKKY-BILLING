@@ -77,3 +77,18 @@ test('dashboard and analytics aggregate organization invoices and subscribers on
   expect(revenue.status).toBe(200);
   expect(revenue.body.data.summary.totalRevenue).toBe(200);
 });
+
+test('owner announcement dispatch queues messages only for the session organization', async () => {
+  const { agent, csrfToken, organization } = await setup();
+  await Subscriber.create([{ organizationId: organization._id, fullName: 'Learner Two', email: 'two@sam.test' }, { organizationId: organization._id, fullName: 'Learner Three', email: 'three@sam.test', status: 'INACTIVE' }]);
+  const otherOwner = await BusinessOwner.create({ firstName: 'Other', email: 'outside@billing.test' });
+  const otherOrg = await Organization.create({ name: 'Other Notice Org', email: 'outside@sam.test', ownerId: otherOwner._id });
+  await Subscriber.create({ organizationId: otherOrg._id, fullName: 'Outside Learner', email: 'outside-learner@sam.test' });
+  const sent = await agent.post('/api/owner/notifications').set('X-CSRF-TOKEN', csrfToken).send({ notificationType: 'ANNOUNCEMENT', audience: 'ALL_ACTIVE', subject: 'New course', message: 'Registration is open.' });
+  expect(sent.status).toBe(201);
+  expect(sent.body.data.queued).toBe(2);
+  const history = await agent.get('/api/owner/notifications');
+  expect(history.body.data).toHaveLength(2);
+  expect(history.body.data.every((row) => row.status === 'QUEUED')).toBe(true);
+  expect(history.body.data.some((row) => row.recipientEmail === 'outside-learner@sam.test')).toBe(false);
+});
