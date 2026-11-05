@@ -11,7 +11,9 @@ import { requireOwner } from './middleware/authorization.js';
 import subscribersRoutes from './modules/subscribers/subscribers.routes.js';
 import subscriptionsRoutes from './modules/subscriptions/subscriptions.routes.js';
 import coursesRoutes from './modules/courses/courses.routes.js';
+import courseInstallmentRoutes from './modules/courses/installments.routes.js';
 import discountsRoutes from './modules/discounts/discounts.routes.js';
+import billingRoutes from './modules/billing/billing.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express();
@@ -33,8 +35,11 @@ export function createApp({ sessionStore } = {}) {
   const protectOwnerApi = [requireOwner, ownerCsrfProtection];
   app.use('/api/owner/subscribers', ...protectOwnerApi, subscribersRoutes);
   app.use('/api/owner/subscriptions', ...protectOwnerApi, subscriptionsRoutes);
+  app.use('/api/owner/courses', ...protectOwnerApi, courseInstallmentRoutes);
   app.use('/api/owner/courses', ...protectOwnerApi, coursesRoutes);
   app.use('/api/owner/discounts', ...protectOwnerApi, discountsRoutes);
+  app.use('/api/owner/billing', ...protectOwnerApi, billingRoutes);
+  app.use('/api/owner/invoices', ...protectOwnerApi, billingRoutes);
   app.use(notFound);
   app.use(errorHandler);
   return app;
