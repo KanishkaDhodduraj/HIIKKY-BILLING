@@ -12,10 +12,11 @@ import { requestsService } from '../src/modules/businessRequests/businessRequest
 import { env } from '../src/config/env.js';
 import PlatformPlan from '../src/models/PlatformPlan.js';
 import PaymentGateway from '../src/models/PaymentGateway.js';
+import { ownerMailService } from '../src/modules/owners/mail.service.js';
 
 let repl, app;
 beforeAll(async () => { repl = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); await mongoose.connect(repl.getUri()); app = createApp(); }, 120000);
-afterEach(async () => { for (const model of [AdminAccount, BusinessRequest, BusinessOwner, Organization, PlatformPlan, PaymentGateway]) await model.deleteMany({}); });
+afterEach(async () => { for (const model of [AdminAccount, BusinessRequest, BusinessOwner, Organization, PlatformPlan, PaymentGateway]) await model.deleteMany({}); await mongoose.connection.collection('owner_sessions').deleteMany({}); });
 afterAll(async () => { await mongoose.disconnect(); await repl?.stop(); });
 
 async function csrf(agent) { const r = await agent.get('/api/admin/auth/csrf'); if(!r.body.data?.token) throw new Error(`CSRF endpoint returned ${r.status}: ${JSON.stringify(r.body)}`); return r.body.data.token; }
@@ -44,6 +45,31 @@ describe('admin session and roles', () => {
 });
 
 describe('search, pagination and request decision', () => {
+  test('approval issues a hashed first-password invite and owner deactivation invalidates owner sessions',async()=>{
+    env.sessionSecret='test-session-secret-with-at-least-32-characters';
+    const mail=jest.spyOn(ownerMailService,'sendPasswordLink').mockResolvedValue();
+    try{
+      const agent=await loggedIn(),token=await csrf(agent);
+      const application=await agent.post('/api/organization-registration-applications').set('X-CSRF-TOKEN',token).send({firstName:'Nora',ownerEmail:'nora@example.com',organizationName:'Nora Academy',organizationEmail:'hello@nora.test',industry:'Education',projectedStudentCount:500,operatingRegion:'North America',subscriptionTier:'Starter',documentsSkipped:true});
+      expect(application.status).toBe(201);
+      const approvalToken=await csrf(agent);
+      const approval=await agent.patch(`/api/admin/business-requests/${application.body.data.id}/approve`).set('X-CSRF-TOKEN',approvalToken);
+      expect(approval.status).toBe(200);
+      expect(approval.body.data.passwordHash).toBeUndefined();
+      expect(mail).toHaveBeenCalledTimes(1);
+      const tokenFromMail=new URL(mail.mock.calls[0][0].url).searchParams.get('token');
+      const owner=await BusinessOwner.findOne({email:'nora@example.com'}).select('+setPasswordTokenHash');
+      expect(owner.setPasswordTokenHash).not.toBe(tokenFromMail);
+      expect(approval.body.data.industry).toBe('Education');
+      const storedSession=JSON.stringify({owner:{id:String(owner._id),email:owner.email}});
+      await mongoose.connection.collection('owner_sessions').insertOne({session:storedSession,expires:new Date(Date.now()+3600000)});
+      const deactivateToken=await csrf(agent);
+      const deactivated=await agent.patch(`/api/admin/business-owners/${owner.id}/deactivate`).set('X-CSRF-TOKEN',deactivateToken);
+      expect(deactivated.status).toBe(200);
+      expect(deactivated.body.data.inviteStatus).toBe('invited');
+      expect(await mongoose.connection.collection('owner_sessions').countDocuments({})).toBe(0);
+    } finally { mail.mockRestore(); }
+  });
   test('Super Admin can create plans and gateway secrets are never returned in clear text',async()=>{env.sessionSecret='test-session-secret-with-at-least-32-characters';env.gatewayEncryptionKey='test-gateway-encryption-secret-with-32-chars';const agent=await loggedIn(),token=await csrf(agent);const p=await agent.post('/api/admin/plans').set('X-CSRF-TOKEN',token).send({planName:'Pro',description:'Team plan',price:25,billingCycle:'MONTHLY',maxUsers:100});expect(p.status).toBe(201);expect(p.body.data.planName).toBe('Pro');const g=await agent.put('/api/admin/gateways/STRIPE').set('X-CSRF-TOKEN',token).send({apiKey:'sk_test_private_secret',supportedMethods:['Cards']});expect(g.status).toBe(200);expect(JSON.stringify(g.body)).not.toContain('sk_test_private_secret');const stored=await PaymentGateway.findOne({provider:'STRIPE'}).select('+secretCiphertext');expect(stored.secretCiphertext).not.toContain('sk_test_private_secret');expect(stored.hasCredentials).toBe(true);expect(await PlatformPlan.countDocuments()).toBe(1);});
   test('account and organization management APIs enforce roles and support CRUD',async()=>{const agent=await loggedIn(),token=await csrf(agent);const account=await agent.post('/api/admin/accounts').set('X-CSRF-TOKEN',token).send({email:'new.admin@example.com',password:'password123',role:'ADMIN'});expect(account.status).toBe(201);const owner=await BusinessOwner.create({firstName:'Org',email:'org.owner@example.com'});const org=await agent.post('/api/admin/organizations').set('X-CSRF-TOKEN',token).send({name:'Org Test',email:'org@example.com',ownerId:String(owner._id)});expect(org.status).toBe(201);expect(org.body.data.ownerId).toBe(String(owner._id));const disabled=await agent.patch(`/api/admin/accounts/${account.body.data.id}/status`).set('X-CSRF-TOKEN',token).send({enabled:false});expect(disabled.status).toBe(200);expect(disabled.body.data.enabled).toBe(false);const removed=await agent.delete(`/api/admin/organizations/${org.body.data.id}`).set('X-CSRF-TOKEN',token);expect(removed.status).toBe(200);});
   test('dashboard and analytics aggregate current registration records',async()=>{const agent=await loggedIn();await BusinessOwner.create({firstName:'Ava',email:'ava.dashboard@example.com'});const dashboard=await agent.get('/api/admin/dashboard').query({page:0,size:10});expect(dashboard.status).toBe(200);expect(dashboard.body.data.businessOwners.total).toBe(1);expect(dashboard.body.data.recentActivity).toHaveLength(2);const day=new Date().toISOString().slice(0,10);const analytics=await agent.get('/api/admin/analytics/registrations').query({fromDate:day,toDate:day,groupBy:'DAY'});expect(analytics.status).toBe(200);expect(analytics.body.data.summary.businessOwnerRegistrations).toBe(1);expect(analytics.body.data.periods[0].period).toBe(day);});
