@@ -1,5 +1,7 @@
 # HIIKKY Admin API Reference
 
+> **Node migration note (2026-11-05):** The runtime replacement is under `backend/` and uses MongoDB, cookie sessions, and ObjectId string IDs. The path and business-rule contract below is retained from the Java implementation. Implemented Node routes currently cover auth/bootstrap/profile, accounts, owners, organizations, applications, dashboard summaries, directory reports/CSV, notifications, and the registration-rate setting. Subscriber/subscription/billing/course/installment reports require importing the corresponding legacy records before those routes can return equivalent data. See README for local setup. No platform revenue or support center behavior is defined.
+
 Base URL: `/api/admin`. JSON field names are camelCase. All successful responses use `{success,message,data,timestamp,fieldErrors}`; validation failures use `fieldErrors`. Sessions are cookie-backed; send the session cookie on authenticated requests. There is no bearer-token API.
 
 ## Auth and profile

@@ -4,11 +4,12 @@ import AdminAccount from '../../models/AdminAccount.js';
 import { env } from '../../config/env.js';
 import { apiResponse } from '../../utils/apiResponse.js';
 import { authService, safeAccount } from './auth.service.js';
+import { generateCsrfToken } from './auth.routes.js';
 const loginSchema = z.object({ email: z.string().email().max(255), password: z.string().min(6).max(100) });
 const bootstrapSchema = z.object({ email: z.string().email().max(255), password: z.string().min(12).max(72) });
 export const authController = {
-  csrf(req, res) { return apiResponse(res, { data: { token: req.csrfToken(), headerName: 'X-CSRF-TOKEN', parameterName: '_csrf' } }); },
-  async login(req, res, next) { try { const { email, password } = loginSchema.parse(req.body); const account = await authService.login(email, password); if (!account) { const e = new Error('Invalid email or password'); e.status = 401; throw e; } await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve())); req.session.admin = safeAccount(account); return apiResponse(res, { message: 'Login successful', data: req.session.admin }); } catch (e) { next(e); } },
+  csrf(req, res) { return apiResponse(res, { data: { token: generateCsrfToken(req, res), headerName: 'X-CSRF-TOKEN', parameterName: '_csrf' } }); },
+  async login(req, res, next) { try { const { email, password } = loginSchema.parse(req.body); const account = await authService.login(email, password); if (!account) { const e = new Error('Invalid email or password'); e.status = 401; throw e; } await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve())); req.session.admin = safeAccount(account); generateCsrfToken(req, res, true); return apiResponse(res, { message: 'Login successful', data: req.session.admin }); } catch (e) { next(e); } },
   async logout(req, res, next) { try { await new Promise((resolve, reject) => req.session.destroy((err) => err ? reject(err) : resolve())); res.clearCookie('hiikky.sid'); res.clearCookie('hiikky.csrf'); return apiResponse(res, { message: 'Logged out' }); } catch (e) { next(e); } },
   me(req, res) { return apiResponse(res, { data: req.session.admin.email }); },
   profile(req, res) { return apiResponse(res, { data: req.session.admin }); },

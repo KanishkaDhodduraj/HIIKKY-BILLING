@@ -1,0 +1,11 @@
+import bcrypt from 'bcrypt';
+import { connectDatabase } from '../src/config/db.js';
+import { env } from '../src/config/env.js';
+import AdminAccount from '../src/models/AdminAccount.js';
+await connectDatabase();
+const email = process.env.SEED_ADMIN_EMAIL;
+const password = process.env.SEED_ADMIN_PASSWORD;
+if (!email || !password || password.length < 12) throw new Error('Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD (at least 12 characters)');
+await AdminAccount.updateOne({ email: email.toLowerCase() }, { $setOnInsert: { email: email.toLowerCase(), passwordHash: await bcrypt.hash(password, 12), role: 'SUPER_ADMIN', enabled: true } }, { upsert: true });
+console.log(`Seed admin ensured: ${email.toLowerCase()}`);
+await import('mongoose').then(({ default: mongoose }) => mongoose.disconnect());
