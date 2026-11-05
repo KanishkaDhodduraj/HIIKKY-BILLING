@@ -1,0 +1,18 @@
+import { Router } from 'express';
+import { doubleCsrf } from 'csrf-csrf';
+import rateLimit from 'express-rate-limit';
+import { authController } from './auth.controller.js';
+import { env } from '../../config/env.js';
+const router = Router();
+const csrf = doubleCsrf({ getSecret: () => env.sessionSecret || 'development-only-secret-replace-before-use', cookieName: 'hiikky.csrf', cookieOptions: { httpOnly: true, sameSite: 'lax', secure: env.nodeEnv === 'production' }, getTokenFromRequest: (req) => req.headers['x-csrf-token'] });
+export const generateCsrfToken = csrf.generateToken;
+export const csrfProtection = csrf.doubleCsrfProtection;
+export const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, skipSuccessfulRequests: true, handler: (_req, res) => res.status(429).json({ success: false, message: 'Too many login failures', data: null, timestamp: new Date().toISOString(), fieldErrors: null }) });
+router.get('/csrf', authController.csrf);
+router.post('/login', csrfProtection, loginLimiter, authController.login);
+router.post('/logout', csrfProtection, authController.logout);
+router.get('/me', authController.me);
+router.get('/profile', authController.profile);
+router.patch('/profile', csrfProtection, authController.updateProfile);
+router.post('/setup/first-super-admin', csrfProtection, authController.bootstrap);
+export default router;

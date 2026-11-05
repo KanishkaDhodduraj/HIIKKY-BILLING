@@ -1,0 +1,2 @@
+export function requireAuth(req, _res, next) { if (!req.session?.admin) { const e = new Error('Authentication required'); e.status = 401; return next(e); } next(); }
+export function requireRole(...roles) { return (req, _res, next) => { if (!req.session?.admin) { const e = new Error('Authentication required'); e.status = 401; return next(e); } if (!roles.includes(req.session.admin.role)) { const e = new Error('Insufficient permissions'); e.status = 403; return next(e); } next(); }; }
