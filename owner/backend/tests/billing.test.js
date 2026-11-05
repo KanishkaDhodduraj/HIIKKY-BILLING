@@ -60,3 +60,20 @@ test('invoice endpoints hide foreign-organization records and CSV is capped', as
   try { expect((await agent.get('/api/owner/invoices/export.csv')).status).toBe(413); }
   finally { spy.mockRestore(); }
 });
+
+test('dashboard and analytics aggregate organization invoices and subscribers only', async () => {
+  const { agent, organization, subscriber, subscription } = await setup();
+  await Subscriber.create({ organizationId: organization._id, subscriptionId: subscription._id, fullName: 'Learner Two', email: 'two@sam.test' });
+  await Billing.create({ organizationId: organization._id, subscriberId: subscriber._id, subscriptionId: subscription._id, invoiceNumber: 'INV-OWN', paymentName: 'Course fee', dueDate: new Date(), paidDate: new Date(), amount: 200, paymentStatus: 'PAID' });
+  const otherOwner = await BusinessOwner.create({ firstName: 'Other', email: 'elsewhere@billing.test' });
+  const otherOrg = await Organization.create({ name: 'Other Dashboard', email: 'elsewhere@sam.test', ownerId: otherOwner._id });
+  await Billing.create({ organizationId: otherOrg._id, invoiceNumber: 'INV-FOREIGN', paymentName: 'Foreign fee', dueDate: new Date(), amount: 90000, paymentStatus: 'PAID' });
+  const dashboard = await agent.get('/api/owner/dashboard');
+  expect(dashboard.status).toBe(200);
+  expect(dashboard.body.data.summary.totalRevenue).toBe(200);
+  expect(dashboard.body.data.summary.activeSubscribers).toBe(2);
+  expect(dashboard.body.data.summary.monthlyRecurringRevenue).toBe(1798);
+  const revenue = await agent.get('/api/owner/analytics/revenue').query({ fromDate: '2026-11-01', toDate: '2026-11-30' });
+  expect(revenue.status).toBe(200);
+  expect(revenue.body.data.summary.totalRevenue).toBe(200);
+});
