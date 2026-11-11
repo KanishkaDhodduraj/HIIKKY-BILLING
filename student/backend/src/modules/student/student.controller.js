@@ -83,7 +83,7 @@ export const studentController = {
   },
   async invoiceCsv(req, res, next) {
     try {
-      const result = await studentService.invoices(req, { status: req.query.status, search: req.query.search, fromDate: req.query.fromDate, toDate: req.query.toDate, page: 0, size: 100 });
+      const result = await studentService.invoices(req, { status: req.query.status, search: req.query.search, fromDate: req.query.fromDate, toDate: req.query.toDate, page: 0, size: 10000 });
       if (result.total > 10000) throw Object.assign(new Error('CSV export exceeds 10,000 rows'), { status: 413 });
       return csv(res, result.rows.map((row) => ({ ...row, dueDate: row.dueDate?.toISOString(), paidDate: row.paidDate?.toISOString() })), ['invoiceNumber', 'paymentName', 'dueDate', 'paidDate', 'amount', 'paymentStatus'], 'student-invoices.csv');
     } catch (error) { return next(error); }
@@ -159,7 +159,7 @@ export const studentController = {
   },
   async renewalReports(req, res, next) {
     try {
-      const result = await studentService.invoices(req, { page: 0, size: 100 });
+      const result = await studentService.invoices(req, { page: 0, size: 100, subscriptionOnly: true });
       return apiResponse(res, { data: result.rows });
     } catch (error) { return next(error); }
   },

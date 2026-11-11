@@ -1,6 +1,7 @@
 import BusinessRequest from '../../models/BusinessRequest.js';
 import BusinessOwner from '../../models/BusinessOwner.js';
 import Organization from '../../models/Organization.js';
+import Notification from '../../models/Notification.js';
 import { createInviteCredential } from '../owners/ownerInvite.service.js';
 import { regex } from '../../utils/query.js';
 
@@ -8,13 +9,22 @@ const keyOf = (value) => [value.ownerEmail.toLowerCase(), value.organizationName
 
 export const requestsService = {
   async intake(input) {
-    const values = { ...input, ownerEmail: input.ownerEmail.toLowerCase(), organizationEmail: input.organizationEmail.toLowerCase() };
-    const [existingOwner, existingOrganization] = await Promise.all([
+    const values = {
+      ...input,
+      firstName: input.firstName.trim(), lastName: input.lastName?.trim() || '', ownerEmail: input.ownerEmail.trim().toLowerCase(), ownerPhone: input.ownerPhone?.trim() || '',
+      organizationName: input.organizationName.trim(), organizationEmail: input.organizationEmail.trim().toLowerCase(), organizationPhone: input.organizationPhone?.trim() || '', organizationAddress: input.organizationAddress?.trim() || '',
+      businessType: input.businessType?.trim() || input.industry?.trim() || '', industry: input.industry?.trim() || input.businessType?.trim() || '',
+      region: input.region?.trim() || input.operatingRegion?.trim() || '', operatingRegion: input.operatingRegion?.trim() || input.region?.trim() || '',
+    };
+    const [existingOwner, existingOrganization, existingApplication] = await Promise.all([
       BusinessOwner.exists({ email: values.ownerEmail }),
       Organization.exists({ $or: [{ name: regex(values.organizationName.trim()) }, { email: values.organizationEmail }] }),
+      BusinessRequest.exists({ pendingKey: keyOf(values), status: 'PENDING' }),
     ]);
-    if (existingOwner || existingOrganization) throw Object.assign(new Error('A business owner or organization already uses these details'), { status: 409 });
-    return BusinessRequest.create({ ...values, pendingKey: keyOf(values) });
+    if (existingOwner || existingOrganization || existingApplication) throw Object.assign(new Error('An application or account with this email or organization already exists'), { status: 409 });
+    const application = await BusinessRequest.create({ ...values, pendingKey: keyOf(values) });
+    await Notification.create({ notificationType: 'BUSINESS_REQUEST_SUBMITTED', recipientType: 'ADMIN', subject: `New application: ${application.organizationName}`, message: `${application.firstName} ${application.lastName || ''} submitted an organization registration request.`, businessRequestId: application._id });
+    return application;
   },
   async decide(id, decision, adminId, reason) {
     const session = await BusinessRequest.startSession();

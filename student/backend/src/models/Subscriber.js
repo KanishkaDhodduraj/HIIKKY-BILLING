@@ -12,6 +12,8 @@ const schema = new mongoose.Schema({
   registrationStatus: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'APPROVED' },
   registrationReviewReason: { type: String, default: '', maxlength: 1000 },
   accessBlocked: { type: Boolean, default: false },
+  accessBlockedReason: { type: String, default: '', maxlength: 500 },
+  accessBlockedAt: { type: Date, default: null },
   autoPayEnabled: { type: Boolean, default: false },
   emailNotificationsEnabled: { type: Boolean, default: true },
   avatarData: { type: String, default: '', maxlength: 1400000 },

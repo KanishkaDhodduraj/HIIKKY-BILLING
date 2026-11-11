@@ -11,6 +11,7 @@ import Subscription from '../src/models/Subscription.js';
 import Course from '../src/models/Course.js';
 import Billing from '../src/models/Billing.js';
 import Payment from '../src/models/Payment.js';
+import BillingNotification from '../src/models/BillingNotification.js';
 
 let repl;
 let server;
@@ -150,6 +151,35 @@ test('sandbox invoice payments are transactional and idempotent', async () => {
   expect(first.body.data.provider).toBe('SANDBOX');
   expect((await Billing.findById(ownInvoice._id)).paymentStatus).toBe('PAID');
   expect(await Payment.countDocuments({ billingId: ownInvoice._id })).toBe(1);
+});
+
+test('zero-value plan invoice settles without charging and records a no-charge payment', async () => {
+  const { agent, csrfToken, student } = await login();
+  const invoice = await Billing.create({
+    organizationId: organization._id, subscriberId: student._id, invoiceNumber: 'INV-STUDENT-FREE',
+    paymentName: 'Discounted plan', dueDate: new Date(), amount: 0,
+  });
+  const response = await agent.post(`/api/student/invoices/${invoice._id}/pay`).set('X-CSRF-TOKEN', csrfToken).set('Idempotency-Key', 'free-invoice-settlement-01').send({});
+  expect(response.status).toBe(200);
+  expect(response.body.data.amount).toBe(0);
+  expect((await Billing.findById(invoice._id)).paymentMethod).toBe('NO_CHARGE');
+  expect((await Payment.findOne({ billingId: invoice._id })).paymentMethodType).toBe('NO_CHARGE');
+});
+
+test('notification pagination includes records older than the former first-page cap', async () => {
+  const { agent, csrfToken, student } = await login();
+  await BillingNotification.insertMany(Array.from({ length: 105 }, (_, index) => ({
+    organizationId: organization._id, subscriberId: student._id, recipientEmail: student.email,
+    subject: `Update ${index}`, message: `Message ${index}`, notificationType: 'ANNOUNCEMENT', status: 'SENT',
+  })));
+  const lastPage = await agent.get('/api/student/notifications').query({ page: 10, size: 10 });
+  expect(lastPage.status).toBe(200);
+  expect(lastPage.headers['x-total-count']).toBe('105');
+  expect(lastPage.body.data).toHaveLength(5);
+  expect((await agent.get('/api/student/notifications').query({ unreadOnly: 'true', size: 10 })).headers['x-total-count']).toBe('105');
+  const marked = await agent.post('/api/student/notifications/read-all').set('X-CSRF-TOKEN', csrfToken).send({});
+  expect(marked.status).toBe(200);
+  expect((await agent.get('/api/student/notifications').query({ unreadOnly: 'true' })).headers['x-total-count']).toBe('0');
 });
 
 test('every authenticated request rechecks student, organization, and owner status', async () => {

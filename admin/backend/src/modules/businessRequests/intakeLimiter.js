@@ -1,6 +1,7 @@
 import AdminSetting from '../../models/AdminSetting.js';
 const WINDOW_MS = 15 * 60 * 1000;
 const attempts = new Map();
+export function resetIntakeAttempts() { attempts.clear(); }
 export async function dynamicIntakeLimiter(req, res, next) {
   try {
     const setting = await AdminSetting.findOne({ key: 'public-registration-rate-limit' }).select('maxSubmissions');

@@ -30,3 +30,7 @@ dist/
 backend/.env
 frontend/.env
 coverage/
+
+# Private Admin registration document storage
+admin/backend/private-documents/
+admin/backend/private-documents-e2e/

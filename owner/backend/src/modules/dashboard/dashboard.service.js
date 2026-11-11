@@ -26,7 +26,7 @@ export const dashboardService = {
     return {
       period: { fromDate: from.toISOString().slice(0, 10), toDate: to.toISOString().slice(0, 10) },
       source: 'Organization billing records',
-      summary: { totalRevenue: money(value), monthlyRecurringRevenue: money(mrr), activeSubscribers: summary.activeSubscribers, totalSubscribers: summary.subscribers, activeSubscriptions: summary.activeSubscriptions, totalCourses: summary.courses, paidInvoices: summary.paid.count, unpaidAmount: money(summary.unpaid.amount), overdueAmount: money(summary.overdue.amount), churnRate: null },
+      summary: { totalRevenue: money(value), monthlyRecurringRevenue: money(mrr), activeSubscribers: summary.activeSubscribers, totalSubscribers: summary.subscribers, pendingStudentRegistrations: summary.pendingStudentRegistrations, activeSubscriptions: summary.activeSubscriptions, totalCourses: summary.courses, paidInvoices: summary.paid.count, unpaidAmount: money(summary.unpaid.amount), overdueAmount: money(summary.overdue.amount), churnRate: null },
       revenueTrend: revenueTrend.map((row) => ({ month: row._id, revenue: money(row.revenue), transactions: row.transactions })),
       subscriberPlans: plans,
       topPayers,

@@ -19,7 +19,7 @@ export const notificationsService = {
     const subscribers = await Subscriber.find(filter).select('fullName email');
     if (subscribers.length > 10000) throw Object.assign(new Error('Notification exceeds the 10,000-recipient limit'), { status: 413 });
     if (!subscribers.length) return { queued: 0 };
-    const rows = subscribers.map((subscriber) => ({ organizationId: orgId, recipientEmail: subscriber.email, recipientName: subscriber.fullName, recipientGroup: input.audience, notificationType: input.notificationType, subject: input.subject, message: input.message, status: 'QUEUED' }));
+    const rows = subscribers.map((subscriber) => ({ organizationId: orgId, subscriberId: subscriber._id, recipientEmail: subscriber.email, recipientName: subscriber.fullName, recipientGroup: input.audience, notificationType: input.notificationType, subject: input.subject, message: input.message, status: 'QUEUED' }));
     await BillingNotification.insertMany(rows);
     return { queued: rows.length };
   },

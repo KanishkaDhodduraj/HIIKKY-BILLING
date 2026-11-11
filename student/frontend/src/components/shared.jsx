@@ -1,0 +1,52 @@
+import { X } from 'lucide-react';
+
+export function Button({ children, className = '', variant = 'primary', ...props }) {
+  const styles = variant === 'secondary'
+    ? 'border border-line bg-white text-ink hover:bg-slate-50'
+    : variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-brand-600 text-white hover:bg-brand-700';
+  return <button className={`inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-xs font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`} {...props}>{children}</button>;
+}
+
+export function FormField({ label, error, className = '', ...props }) {
+  return <label className={`grid gap-1.5 text-xs font-semibold text-ink ${className}`}>{label}<input className={`min-w-0 rounded-lg border ${error ? 'border-red-400' : 'border-line'} bg-white px-3 py-2.5 text-xs font-normal outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100`} {...props} />{error && <span className="text-[10px] font-normal text-red-600">{error}</span>}</label>;
+}
+
+export function SelectField({ label, error, children, className = '', ...props }) {
+  return <label className={`grid gap-1.5 text-xs font-semibold text-ink ${className}`}>{label}<select className={`min-w-0 rounded-lg border ${error ? 'border-red-400' : 'border-line'} bg-white px-3 py-2.5 text-xs outline-none focus:border-brand-500`} {...props}>{children}</select>{error && <span className="text-[10px] font-normal text-red-600">{error}</span>}</label>;
+}
+
+export function TextAreaField({ label, error, className = '', ...props }) {
+  return <label className={`grid gap-1.5 text-xs font-semibold text-ink ${className}`}>{label}<textarea className={`min-w-0 rounded-lg border ${error ? 'border-red-400' : 'border-line'} bg-white px-3 py-2.5 text-xs font-normal outline-none focus:border-brand-500`} {...props} />{error && <span className="text-[10px] font-normal text-red-600">{error}</span>}</label>;
+}
+
+export function StatCard({ title, value, icon: Icon, caption, tone = 'brand' }) {
+  const color = tone === 'danger' ? 'bg-red-50 text-red-600' : tone === 'success' ? 'bg-emerald-50 text-emerald-600' : tone === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-600';
+  return <div className="rounded-xl border border-line bg-white p-4 shadow-soft"><div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-wider text-muted">{title}</span>{Icon && <span className={`grid h-9 w-9 place-items-center rounded-xl ${color}`}><Icon size={17} /></span>}</div><div className="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink">{value ?? '—'}</div>{caption && <div className="mt-1 text-[10px] text-muted">{caption}</div>}</div>;
+}
+
+export function Modal({ title, onClose, children, size = 'max-w-xl' }) {
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}><section role="dialog" aria-modal="true" className={`max-h-[92vh] w-full ${size} overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-card`}><header className="mb-5 flex items-center justify-between"><h2 className="font-display text-base font-extrabold">{title}</h2><button aria-label="Close dialog" onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-slate-100"><X size={17} /></button></header>{children}</section></div>;
+}
+
+export function Pagination({ page, total, size, onPage }) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  return <div className="flex items-center justify-between border-t border-line px-4 py-3 text-[10px] text-muted"><span>Showing {total ? `${page * size + 1}–${Math.min(total, (page + 1) * size)}` : '0'} of {total} entries</span><div className="flex items-center gap-1"><button aria-label="Previous page" disabled={!page} onClick={() => onPage(page - 1)} className="rounded-md border border-line px-2 py-1 disabled:opacity-40">‹</button><span className="min-w-8 rounded-md bg-brand-600 px-2 py-1 text-center font-bold text-white">{page + 1}</span><button aria-label="Next page" disabled={page + 1 >= pages} onClick={() => onPage(page + 1)} className="rounded-md border border-line px-2 py-1 disabled:opacity-40">›</button></div></div>;
+}
+
+export function Toast({ message, type = 'success', onClose }) {
+  if (!message) return null;
+  return <div role="status" className={`fixed bottom-4 right-4 z-[80] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 text-xs shadow-card ${type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-white text-emerald-700'}`}>{message}<button aria-label="Dismiss" onClick={onClose} className="ml-auto"><X size={14} /></button></div>;
+}
+
+export function ConfirmDialog({ title, description, confirmLabel = 'Confirm', onConfirm, onCancel, busy = false, danger = true }) {
+  return <Modal title={title} onClose={onCancel} size="max-w-sm"><p className="text-xs leading-5 text-muted">{description}</p><div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={onCancel}>Cancel</Button><Button variant={danger ? 'danger' : 'primary'} disabled={busy} onClick={onConfirm}>{busy ? 'Working…' : confirmLabel}</Button></div></Modal>;
+}
+
+export function DataTable({ columns, rows, loading = false, actions, empty = 'No records found.' }) {
+  return <div className="overflow-x-auto">{loading ? <div className="p-10 text-center text-xs text-muted">Loading…</div> : rows.length ? <table className="w-full min-w-[680px] text-left"><thead className="bg-[#f1f3fb] text-[9px] uppercase tracking-wider text-[#69738b]"><tr>{columns.map((column) => <th key={column.key} className="px-4 py-3 font-bold">{column.label}</th>)}{actions && <th className="px-4 py-3 text-right font-bold">Actions</th>}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row) => <tr key={row.id} className="transition hover:bg-[#fbfbff]">{columns.map((column) => <td key={column.key} className="px-4 py-3 text-[11px]">{column.render ? column.render(row) : row[column.key] ?? '—'}</td>)}{actions && <td className="px-4 py-3 text-right">{actions(row)}</td>}</tr>)}</tbody></table> : <div className="p-10 text-center text-xs text-muted">{empty}</div>}</div>;
+}
+
+export function Badge({ children, tone = 'muted' }) {
+  const colors = { success: 'bg-emerald-50 text-emerald-700', warning: 'bg-amber-50 text-amber-700', danger: 'bg-red-50 text-red-600', brand: 'bg-brand-50 text-brand-700', muted: 'bg-slate-100 text-slate-600' };
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[9px] font-bold ${colors[tone]}`}>{children}</span>;
+}

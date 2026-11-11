@@ -30,6 +30,7 @@ export const authController = {
     try {
       if (req.session) await new Promise((resolve, reject) => req.session.destroy((error) => error ? reject(error) : resolve()));
       res.clearCookie('hiikky.student.sid');
+      res.clearCookie('hiikky.student.csrf');
       return apiResponse(res, { message: 'Signed out' });
     } catch (error) { return next(error); }
   },

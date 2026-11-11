@@ -5,12 +5,13 @@ import { ownerMailService } from './mail.service.js';
 
 export function createInviteCredential() {
   const token = crypto.randomBytes(32).toString('base64url');
-  return { token, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) };
+  return { token, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000) };
 }
 
 export async function sendOwnerInvite(owner, token, purpose = 'invite') {
   const url = `${env.ownerClientOrigin}/owner/set-password?token=${encodeURIComponent(token)}`;
   await ownerMailService.sendPasswordLink({ email: owner.email, url, purpose });
+  return url;
 }
 
 export const ownerInviteService = {

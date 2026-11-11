@@ -1,0 +1,24 @@
+import { Router } from 'express';
+import { requireOwner } from '../../middleware/authorization.js';
+import { ownerCsrfProtection } from '../auth/ownerAuth.routes.js';
+import { studentsController as controller } from './students.controller.js';
+
+const router = Router();
+router.use(requireOwner);
+router.get('/export.csv', controller.csv);
+router.get('/registrations', (req, res, next) => { req.query.registrationStatus = req.query.registrationStatus || 'PENDING'; return controller.list(req, res, next); });
+router.get('/', controller.list);
+router.post('/', ownerCsrfProtection, controller.create);
+router.get('/:id', controller.get);
+router.put('/:id', ownerCsrfProtection, controller.update);
+router.patch('/:id/status', ownerCsrfProtection, controller.update);
+router.post('/:id/invite', ownerCsrfProtection, controller.invite);
+router.post('/:id/resend-invite', ownerCsrfProtection, controller.invite);
+router.patch('/:id/approve', ownerCsrfProtection, controller.approve);
+router.patch('/:id/reject', ownerCsrfProtection, controller.reject);
+router.get('/:id/courses', controller.courses);
+router.put('/:id/courses', ownerCsrfProtection, controller.assignCourses);
+router.get('/:id/payments', controller.payments);
+router.post('/:id/notifications', ownerCsrfProtection, controller.notify);
+router.delete('/:id', ownerCsrfProtection, controller.remove);
+export default router;

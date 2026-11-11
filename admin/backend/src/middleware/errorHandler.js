@@ -2,6 +2,11 @@ import { apiError } from '../utils/apiResponse.js';
 export function notFound(_req, res) { return apiError(res, { status: 404, message: 'Resource not found' }); }
 export function errorHandler(error, _req, res, _next) {
   if (res.headersSent) return;
+  if (error?.name === 'MulterError') {
+    const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    const message = status === 413 ? 'Document must be 5 MB or smaller' : 'Invalid document upload';
+    return apiError(res, { status, message, fieldErrors: { document: message } });
+  }
   if (error?.name === 'ZodError') { const fieldErrors = Object.fromEntries(error.issues.map((i) => [i.path.join('.') || 'request', i.message])); return apiError(res, { status: 400, message: 'Validation failed', fieldErrors }); }
   if (error?.code === 11000) return apiError(res, { status: 409, message: 'A record with that value already exists' });
   const status = Number.isInteger(error?.status) ? error.status : 500;

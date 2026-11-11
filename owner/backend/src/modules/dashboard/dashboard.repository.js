@@ -8,14 +8,15 @@ import { tenantFilter } from '../shared/ownerRepository.js';
 const organizationIds = (req) => (req.ownerOrganizationIds || []).map((id) => new mongoose.Types.ObjectId(id));
 export const dashboardRepository = {
   async counts(req) {
-    const [subscribers, activeSubscribers, activeSubscriptions, courses, paid, unpaid, overdue] = await Promise.all([
+    const [subscribers, activeSubscribers, pendingStudentRegistrations, activeSubscriptions, courses, paid, unpaid, overdue] = await Promise.all([
       Subscriber.countDocuments(tenantFilter(req)), Subscriber.countDocuments(tenantFilter(req, { status: 'ACTIVE' })),
+      Subscriber.countDocuments(tenantFilter(req, { registrationStatus: 'PENDING' })),
       Subscription.countDocuments(tenantFilter(req, { status: 'ACTIVE' })), Course.countDocuments(tenantFilter(req)),
       Billing.aggregate([{ $match: tenantFilter(req, { paymentStatus: 'PAID' }) }, { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } }]),
       Billing.aggregate([{ $match: tenantFilter(req, { paymentStatus: 'UNPAID' }) }, { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } }]),
       Billing.aggregate([{ $match: tenantFilter(req, { paymentStatus: 'OVERDUE' }) }, { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } }]),
     ]);
-    return { subscribers, activeSubscribers, activeSubscriptions, courses, paid: paid[0] || { amount: 0, count: 0 }, unpaid: unpaid[0] || { amount: 0, count: 0 }, overdue: overdue[0] || { amount: 0, count: 0 } };
+    return { subscribers, activeSubscribers, pendingStudentRegistrations, activeSubscriptions, courses, paid: paid[0] || { amount: 0, count: 0 }, unpaid: unpaid[0] || { amount: 0, count: 0 }, overdue: overdue[0] || { amount: 0, count: 0 } };
   },
   revenueByMonth(req, from, to) {
     return Billing.aggregate([{ $match: tenantFilter(req, { paymentStatus: 'PAID', paidDate: { $gte: from, $lte: to } }) }, { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$paidDate' } }, revenue: { $sum: '$amount' }, transactions: { $sum: 1 } } }, { $sort: { _id: 1 } }]);

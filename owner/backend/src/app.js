@@ -18,6 +18,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import registrationsRoutes from './modules/registrations/registrations.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
+import studentsRoutes from './modules/students/students.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express();
@@ -47,6 +48,7 @@ export function createApp({ sessionStore } = {}) {
   app.use('/api/owner/discounts', ...protectOwnerApi, discountsRoutes);
   app.use('/api/owner/notifications', ...protectOwnerApi, notificationsRoutes);
   app.use('/api/owner/settings', ...protectOwnerApi, settingsRoutes);
+  app.use('/api/owner/students', studentsRoutes);
   app.use('/api/owner/billing', ...protectOwnerApi, billingRoutes);
   app.use('/api/owner/invoices', ...protectOwnerApi, billingRoutes);
   app.use(notFound);

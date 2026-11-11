@@ -71,6 +71,19 @@ test('hashed set-password links are one use and expire after setting a password'
   expect((await agent.post('/api/owner/auth/set-password').set('X-CSRF-TOKEN', csrfToken).send({ token, password: 'Another-Strong-Password-123' })).status).toBe(400);
 });
 
+test('expired set-password links are rejected', async () => {
+  const owner = await BusinessOwner.create({ firstName: 'Expired', email: 'expired@owner.test' });
+  const token = 'an-expired-password-setup-token-value-123456789';
+  owner.setPasswordTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  owner.setPasswordTokenExpiresAt = new Date(Date.now() - 1000);
+  await owner.save();
+  const agent = request.agent(server), csrfToken = await csrf(agent);
+  const response = await agent.post('/api/owner/auth/set-password').set('X-CSRF-TOKEN', csrfToken).send({ token, password: 'A-Strong-Owner-Password-123' });
+  expect(response.status).toBe(400);
+  expect(response.body.message).toMatch(/invalid or expired/i);
+  expect((await BusinessOwner.findById(owner._id).select('+passwordHash')).passwordHash).toBeNull();
+});
+
 test('tenant scope comes from the login session; foreign records return 404 and cannot be reassigned', async () => {
   const [ownerA, ownerB] = await BusinessOwner.create([
     { firstName: 'Owner A', email: 'a@owner.test', passwordHash: await bcrypt.hash('StrongPassword123', 4), passwordSetAt: new Date() },

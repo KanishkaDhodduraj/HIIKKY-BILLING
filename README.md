@@ -1,72 +1,73 @@
 # HIIKKY
 
-HIIKKY is a subscription and billing administration system for e-learning businesses. It has an Admin portal and a tenant-scoped Business Owner portal, each with its own Express API and React console.
+HIIKKY provides separate Admin, Business Owner, and Student portals. All three APIs use the same MongoDB database and the same Subscriber records for student identity, billing, and course data. Each API keeps its own session cookie and session collection.
 
-## Requirements
+## Requirements and shared configuration
 
 - Node.js 20+
-- MongoDB replica set (bootstrap and business-request approval use transactions)
+- A MongoDB replica set; invoice payments, approval, and course assignment use transactions.
+- Configure all three backend `.env` files with the same `MONGODB_URI` and distinct random `SESSION_SECRET` values (at least 32 characters).
+- The Student API uses sandbox payments only. No live payment credentials are required.
+- Configure SMTP for delivered mail. In development without SMTP, owner/student invitation links are written to the relevant backend console.
 
-## Setup and run
+## Projects and ports
 
-Start MongoDB as a replica set. Copy `admin/backend/.env.example` to `admin/backend/.env` and set `MONGODB_URI`, a random `SESSION_SECRET` of at least 32 characters, a separate random `GATEWAY_ENCRYPTION_KEY` of at least 32 characters, `ADMIN_BOOTSTRAP_SECRET` (at least 32 characters), and `CLIENT_ORIGIN`.
+| Project | API | Frontend | Environment |
+| --- | --- | --- | --- |
+| Admin | `http://localhost:5000` | `http://localhost:5173` | `admin/backend/.env`, `admin/frontend/.env` |
+| Business Owner | `http://localhost:5001` | `http://localhost:5174` | `owner/backend/.env`, `owner/frontend/.env` |
+| Student | `http://localhost:5002` | `http://localhost:5175` | `student/backend/.env`, `student/frontend/.env` |
 
-```sh
-cd admin/backend
-npm install
-npm run dev
+Copy each project's `.env.example` to `.env`. Set the Admin bootstrap/encryption settings, Owner settings encryption key and SMTP settings, and Student mail settings as documented in those examples. Set each frontend API URL only when using non-default ports.
+
+## Run all six projects
+
+Start each API and frontend in its own terminal after MongoDB is available:
+
+```powershell
+Set-Location admin/backend; npm install; npm run dev
+Set-Location admin/frontend; npm install; npm run dev
+Set-Location owner/backend; npm install; npm run dev
+Set-Location owner/frontend; npm install; npm run dev
+Set-Location student/backend; npm install; npm run dev
+Set-Location student/frontend; npm install; npm run dev
 ```
 
-In another terminal:
+The Admin bootstrap endpoint is `POST /api/admin/setup/first-super-admin`; set `ADMIN_BOOTSTRAP_SECRET`, send a CSRF token, and remove the bootstrap secret after setup. Admin can also seed a local account with `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` followed by `npm run seed` in `admin/backend`. Owner demo data is seeded with `SEED_OWNER_EMAIL` and `SEED_OWNER_PASSWORD` in `owner/backend`. Student data is seeded with `SEED_STUDENT_PASSWORD` and optional identity/organization overrides in `student/backend` (`npm run seed`); use a private environment value and do not deploy the seed password.
 
-```sh
-cd admin/frontend
-npm install
-npm run dev
-```
+## How records are shared
 
-The Admin API listens on `http://localhost:5000`; Vite serves the console on `http://localhost:5173`. To change the API URL, copy `admin/frontend/.env.example` to `admin/frontend/.env`. Fetch a CSRF token from `GET /api/admin/auth/csrf` before mutations. Create the first Super Admin using `POST /api/admin/setup/first-super-admin`, the CSRF header, and `X-Admin-Bootstrap-Secret`, then remove the bootstrap secret from the environment.
+- Admin manages organizations and owners, sees student counts and reports, and can block/unblock student access. Deactivating an owner or organization removes student sessions.
+- The Owner portal manages students and registrations, plans, courses, invoices, and notifications. Student accounts are Owner Subscribers; no duplicate student identity table is used.
+- Students see only their own organization-scoped data. Invoice payment uses a sandbox adapter, creates a Payment record, and updates the shared invoice in a MongoDB transaction. Owner billing and Admin payment reports read those same records.
+- Course assignments support progress tracking. All published organization courses are unlocked for students. Automatic recurring charges are not scheduled; Auto Pay records a preference and clearly indicates this limitation.
 
-To seed a local Super Admin, set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` (minimum 12 characters), then run `npm run seed` from `admin/backend`.
+API contracts and QA steps:
 
-## Business Owner portal
-
-The Owner portal shares the same MongoDB database and business-owner, organization, registration-request, and platform-plan collections as Admin. It uses a separate API port, session cookie, and session collection. Keep both APIs pointed at the same MongoDB replica set so Admin approvals and Owner logins see the same records. Copy `owner/backend/.env.example` to `owner/backend/.env`; configure a separate 32-character-or-longer `SESSION_SECRET` and `SETTINGS_ENCRYPTION_KEY`, and set `MONGODB_URI` to the same database as Admin. The Owner API uses port 5001 and the Owner console uses port 5174.
-
-```sh
-cd owner/backend
-npm install
-npm run dev
-```
-
-In another terminal:
-
-```sh
-cd owner/frontend
-npm install
-npm run dev
-```
-
-Business signup creates a pending Admin registration request. Admin approval creates an invitation; the owner sets a password from that invitation before signing in. Development mail is logged by the Admin backend. Create an optional local demo workspace by setting `SEED_OWNER_EMAIL` and `SEED_OWNER_PASSWORD` (12–72 UTF-8 bytes) in the shell and running `npm run seed` from `owner/backend`; this seed is separate from the Admin Super Admin seed.
-
-Owner API details and current integration boundaries are in [docs/owner-api-reference.md](docs/owner-api-reference.md); run the [Owner QA checklist](docs/owner-qa-checklist.md) once the shared MongoDB replica set is running. Payment provider processing and outbound notification delivery are not connected yet; invoices and notifications are saved and scoped within the organization.
+- [Admin API](docs/admin-api-reference.md) · [Admin QA](docs/admin-qa-checklist.md)
+- [Owner API](docs/owner-api-reference.md) · [Owner QA](docs/owner-qa-checklist.md)
+- [Student API](docs/student-api-reference.md) · [Student QA](docs/student-qa-checklist.md)
 
 ## Project layout
 
 ```text
-admin/backend/    Express, Mongoose, Admin sessions, APIs, seed script
-admin/frontend/   React, Vite, Tailwind Admin application
-owner/backend/    Express, Mongoose, isolated Owner sessions and tenant APIs
-owner/frontend/   React, Vite, Tailwind Owner application
-legacy-java/      Preserved Spring Boot admin source
-docs/             API contract and implementation notes
+admin/backend/    Express, Mongoose, Admin API and sessions
+admin/frontend/   React, Vite, Tailwind Admin portal
+owner/backend/    Express, Mongoose, tenant-scoped Owner API and sessions
+owner/frontend/   React, Vite, Tailwind Owner portal
+student/backend/  Express, Mongoose, Student API and isolated sessions
+student/frontend/ React, Vite, Tailwind Student portal
+legacy-java/      Preserved Java source
+docs/             API references and QA checklists
 ```
-
-The backend uses route, controller, service, and model layers. Admin route details and preserved business rules are in [docs/admin-api-reference.md](docs/admin-api-reference.md). Platform revenue and the support center remain outside the documented backend scope.
 
 ## Validation
 
-```sh
-cd admin/backend && npm test
-cd admin/frontend && npm run build
+```powershell
+Set-Location student/backend; npm test
+Set-Location student/frontend; npm run build
+Set-Location owner/backend; npm test
+Set-Location owner/frontend; npm run build
+Set-Location admin/backend; npm test
+Set-Location admin/frontend; npm run build
 ```

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api', withCredentials: true });
+export const adminApi = axios.create({ baseURL: import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:5000/api', withCredentials: true });
 let csrfToken = '';
 export const setCsrfToken = (token) => { csrfToken = token || ''; };
 export const dataOf = (response) => response?.data?.data;

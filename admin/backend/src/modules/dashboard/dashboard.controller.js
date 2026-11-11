@@ -2,6 +2,8 @@ import { z } from 'zod';
 import AdminAccount from '../../models/AdminAccount.js';
 import BusinessOwner from '../../models/BusinessOwner.js';
 import Organization from '../../models/Organization.js';
+import BusinessRequest from '../../models/BusinessRequest.js';
+import Subscriber from '../../models/Subscriber.js';
 import { apiResponse } from '../../utils/apiResponse.js';
 import { env } from '../../config/env.js';
 
@@ -33,18 +35,37 @@ export const dashboardController = {
     try {
       const range = dateRange(req.query), page = Number(req.query.page ?? 0), size = Number(req.query.size ?? 20);
       if (!Number.isInteger(page) || page < 0 || !Number.isInteger(size) || size < 1 || size > 100) throw Object.assign(new Error('Invalid page or size'), { status: 400 });
-      const [ownerTotal, orgTotal, adminTotal, ownersActive, orgsActive, adminsEnabled, ownersInRange, orgsInRange, activity] = await Promise.all([
-        BusinessOwner.countDocuments(), Organization.countDocuments(), AdminAccount.countDocuments(), BusinessOwner.countDocuments({ status: 'ACTIVE' }), Organization.countDocuments({ status: 'ACTIVE' }), AdminAccount.countDocuments({ enabled: true }),
+      const [ownerTotal, orgTotal, adminTotal, studentTotal, ownersActive, orgsActive, adminsEnabled, ownersInRange, orgsInRange, pendingBusinessRequests, activity, studentCounts, organizations] = await Promise.all([
+        BusinessOwner.countDocuments(),
+        Organization.countDocuments(),
+        AdminAccount.countDocuments(),
+        Subscriber.countDocuments(),
+        BusinessOwner.countDocuments({ status: 'ACTIVE' }),
+        Organization.countDocuments({ status: 'ACTIVE' }),
+        AdminAccount.countDocuments({ enabled: true }),
         range ? BusinessOwner.countDocuments({ createdAt: { $gte: range.from, $lte: range.to } }) : BusinessOwner.countDocuments(),
         range ? Organization.countDocuments({ createdAt: { $gte: range.from, $lte: range.to } }) : Organization.countDocuments(),
+        BusinessRequest.countDocuments({ status: 'PENDING' }),
         BusinessOwner.aggregate(activityPipeline(page, size, range)),
+        Subscriber.aggregate([
+          { $group: { _id: '$organizationId', total: { $sum: 1 }, active: { $sum: { $cond: [{ $and: [{ $in: ['$status', ['ACTIVE', 'TRIALING']] }, { $ne: ['$accessBlocked', true] }] }, 1, 0] } }, blocked: { $sum: { $cond: [{ $eq: ['$accessBlocked', true] }, 1, 0] } } } },
+          { $lookup: { from: Organization.collection.name, localField: '_id', foreignField: '_id', as: 'organization' } },
+          { $unwind: { path: '$organization', preserveNullAndEmptyArrays: true } },
+          { $project: { _id: 0, organizationId: { $toString: '$_id' }, organizationName: { $ifNull: ['$organization.name', ''] }, total: 1, active: 1, blocked: 1 } },
+          { $sort: { organizationName: 1, organizationId: 1 } },
+        ]),
+        Organization.find({}).select('name').lean(),
       ]);
       const result = activity[0] || { items: [], total: [] }, count = result.total[0]?.count || 0;
+      const countsByOrganization = new Map(studentCounts.map((row) => [row.organizationId, row]));
+      const studentsByOrganization = organizations.map((organization) => countsByOrganization.get(String(organization._id)) || {
+        organizationId: String(organization._id), organizationName: organization.name, total: 0, active: 0, blocked: 0,
+      });
       return apiResponse(res, { data: { fromDate: req.query.fromDate || null, toDate: req.query.toDate || null, timezone: env.timezone,
-        platformSummary: { businessOwnerCount: ownerTotal, organizationCount: orgTotal, adminAccountCount: adminTotal },
+        platformSummary: { businessOwnerCount: ownerTotal, organizationCount: orgTotal, adminAccountCount: adminTotal, studentCount: studentTotal },
         businessOwners: { total: ownerTotal, active: ownersActive, inactive: ownerTotal - ownersActive, registeredInRange: ownersInRange },
         organizations: { total: orgTotal, active: orgsActive, inactive: orgTotal - orgsActive, createdInRange: orgsInRange },
-        adminAccounts: { total: adminTotal, enabled: adminsEnabled, disabled: adminTotal - adminsEnabled },
+        adminAccounts: { total: adminTotal, enabled: adminsEnabled, disabled: adminTotal - adminsEnabled }, studentCountsByOrganization: studentsByOrganization, pendingBusinessRequests,
         recentActivity: result.items, recentActivityTotal: count, recentActivityPage: page, recentActivitySize: size,
       } });
     } catch (error) { next(error); }

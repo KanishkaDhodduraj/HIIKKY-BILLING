@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const schema = new mongoose.Schema({
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
   billingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Billing', default: null, index: true },
+  subscriberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subscriber', default: null, index: true },
   recipientEmail: { type: String, required: true, lowercase: true, trim: true, maxlength: 255 }, recipientName: { type: String, default: '' },
   notificationType: { type: String, enum: ['BILLING', 'ANNOUNCEMENT', 'SYSTEM_ALERT'], default: 'BILLING' },
   recipientGroup: { type: String, default: 'INDIVIDUAL' },

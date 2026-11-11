@@ -211,8 +211,9 @@ export const studentService = {
     return { subscriptionId: student.subscriptionId ? String(student.subscriptionId) : null, status: 'CANCELLED', endDate: student.endDate, autoPayEnabled: false };
   },
 
-  async invoices(req, { status, search, fromDate, toDate, page = 0, size = 20 } = {}) {
+  async invoices(req, { status, search, fromDate, toDate, subscriptionOnly = false, page = 0, size = 20 } = {}) {
     const filter = {};
+    if (subscriptionOnly) filter.subscriptionId = { $ne: null };
     if (status) {
       const normalized = status.toUpperCase();
       if (!['PAID', 'UNPAID', 'OVERDUE'].includes(normalized)) throw Object.assign(new Error('Invalid invoice status'), { status: 400 });
@@ -246,7 +247,7 @@ export const studentService = {
     const invoice = await studentRepository.invoice(req, invoiceId);
     if (!invoice) throw notFound('Invoice');
     if (invoice.paymentStatus === 'PAID') throw Object.assign(new Error('Invoice is already paid'), { status: 409 });
-    if (invoice.amount <= 0) throw Object.assign(new Error('Zero-value invoices must be settled by the owner'), { status: 400 });
+    if (invoice.amount < 0) throw Object.assign(new Error('Invoice amount is invalid'), { status: 400 });
     let method = null;
     if (paymentMethodId) {
       method = await StudentPaymentMethod.findOne(studentScope(req, { _id: paymentMethodId }));
@@ -262,7 +263,7 @@ export const studentService = {
       await session.withTransaction(async () => {
         const updated = await Billing.findOneAndUpdate(
           { _id: invoice._id, organizationId: req.organization._id, subscriberId: req.student._id, paymentStatus: { $ne: 'PAID' } },
-          { $set: { paymentStatus: 'PAID', paidDate: paidAt, paymentMethod: `SANDBOX_${method?.type || 'CARD'}` } },
+          { $set: { paymentStatus: 'PAID', paidDate: paidAt, paymentMethod: invoice.amount === 0 ? 'NO_CHARGE' : `SANDBOX_${method?.type || 'CARD'}` } },
           { new: true, session },
         );
         if (!updated) throw Object.assign(new Error('Invoice is already paid'), { status: 409 });
@@ -275,7 +276,7 @@ export const studentService = {
           currency: 'USD',
           provider: charge.provider,
           providerReference: charge.providerReference,
-          paymentMethodType: method?.type || 'CARD',
+          paymentMethodType: invoice.amount === 0 ? 'NO_CHARGE' : method?.type || 'CARD',
           paidAt,
         }], { session });
         if (updated.applyPlanAfterPayment && updated.subscriptionId) {
@@ -372,19 +373,42 @@ export const studentService = {
   },
 
   async notifications(req, { category, unreadOnly, page = 0, size = 20 } = {}) {
-    const notices = await studentRepository.notifications(req).limit(100);
-    const states = await studentRepository.notificationStates(req, notices.map((notice) => notice._id));
-    const stateById = new Map(states.map((state) => [String(state.notificationId), state]));
-    const filtered = notices.map((notice) => {
-      const state = stateById.get(String(notice._id));
-      const type = notice.notificationType === 'BILLING' || notice.billingId ? 'BILLING' : 'COURSES';
-      return {
-        id: String(notice._id), subject: notice.subject, message: notice.message, type,
-        createdAt: notice.createdAt, read: Boolean(state?.readAt), cleared: Boolean(state?.clearedAt),
-        status: notice.status,
-      };
-    }).filter((notice) => !notice.cleared && (!category || category === 'ALL' || notice.type === category) && (!unreadOnly || !notice.read));
-    return { rows: filtered.slice(page * size, (page + 1) * size), total: filtered.length };
+    const match = {
+      organizationId: req.organization._id,
+      $or: [{ subscriberId: req.student._id }, { subscriberId: null, recipientEmail: req.student.email }],
+    };
+    if (category === 'BILLING') match.$and = [{ $or: [{ notificationType: 'BILLING' }, { billingId: { $ne: null } }] }];
+    if (category === 'COURSES') match.$and = [{ notificationType: { $ne: 'BILLING' }, billingId: null }];
+    const [result = { rows: [], total: [] }] = await BillingNotification.aggregate([
+      { $match: match },
+      { $lookup: {
+        from: StudentNotificationState.collection.name,
+        let: { noticeId: '$_id' },
+        pipeline: [{ $match: { $expr: { $and: [
+          { $eq: ['$organizationId', req.organization._id] },
+          { $eq: ['$subscriberId', req.student._id] },
+          { $eq: ['$notificationId', '$$noticeId'] },
+        ] } } }, { $project: { readAt: 1, clearedAt: 1 } }],
+        as: 'studentState',
+      } },
+      { $set: { studentState: { $arrayElemAt: ['$studentState', 0] } } },
+      { $match: { 'studentState.clearedAt': null, ...(unreadOnly ? { 'studentState.readAt': null } : {}) } },
+      { $facet: {
+        rows: [
+          { $sort: { createdAt: -1, _id: 1 } }, { $skip: page * size }, { $limit: size },
+          { $project: { subject: 1, message: 1, createdAt: 1, status: 1, notificationType: 1, billingId: 1, readAt: '$studentState.readAt' } },
+        ],
+        total: [{ $count: 'count' }],
+      } },
+    ]);
+    return {
+      rows: result.rows.map((notice) => ({
+        id: String(notice._id), subject: notice.subject, message: notice.message,
+        type: notice.notificationType === 'BILLING' || notice.billingId ? 'BILLING' : 'COURSES',
+        createdAt: notice.createdAt, read: Boolean(notice.readAt), status: notice.status,
+      })),
+      total: result.total[0]?.count || 0,
+    };
   },
 
   async notification(req, id) {

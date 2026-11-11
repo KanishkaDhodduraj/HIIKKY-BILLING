@@ -4,7 +4,7 @@ import { BarChart3, Bell, BookOpen, CreditCard, FileBarChart, GraduationCap, Lay
 import { useAuth } from '../context/AuthContext';
 
 const links = [
-  ['Dashboard', '/owner/dashboard', LayoutDashboard], ['Users', '/owner/users', Users], ['Subscription Plans', '/owner/subscription-plans', Package],
+  ['Dashboard', '/owner/dashboard', LayoutDashboard], ['Users', '/owner/users', Users], ['Students', '/owner/students', GraduationCap], ['Subscription Plans', '/owner/subscription-plans', Package],
   ['Courses', '/owner/courses', GraduationCap], ['Billing', '/owner/billing', CreditCard], ['Invoices', '/owner/invoices', ReceiptText],
   ['Revenue Analytics', '/owner/revenue-analytics', ChartNoAxesCombined], ['Subscription Analytics', '/owner/subscription-analytics', BarChart3],
   ['Discounts', '/owner/discounts', Percent], ['Reports', '/owner/reports', FileBarChart], ['Notifications', '/owner/notifications', Bell], ['Settings', '/owner/settings', Settings],

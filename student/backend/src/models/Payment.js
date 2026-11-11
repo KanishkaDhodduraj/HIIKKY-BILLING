@@ -9,7 +9,7 @@ const schema = new mongoose.Schema({
   currency: { type: String, required: true, default: 'USD', maxlength: 3 },
   provider: { type: String, enum: ['SANDBOX'], default: 'SANDBOX' },
   providerReference: { type: String, required: true, unique: true },
-  paymentMethodType: { type: String, enum: ['CARD', 'UPI', 'BANK'], default: 'CARD' },
+  paymentMethodType: { type: String, enum: ['CARD', 'UPI', 'BANK', 'NO_CHARGE'], default: 'CARD' },
   status: { type: String, enum: ['SUCCEEDED'], default: 'SUCCEEDED' },
   paidAt: { type: Date, required: true, default: Date.now },
 }, { timestamps: true });

@@ -4,6 +4,7 @@ import Organization from '../../models/Organization.js';
 import { apiResponse } from '../../utils/apiResponse.js';
 import { pageSpec, setPageHeaders, regex } from '../../utils/query.js';
 import { invitationStatus, ownerInviteService } from './ownerInvite.service.js';
+import { invalidateStudentSessionsByOrganizations } from '../students/studentSessions.js';
 
 const idSchema = z.string().regex(/^[a-f\d]{24}$/i);
 const fields = { firstName: z.string().trim().min(1).max(100), lastName: z.string().max(100).optional(), email: z.string().email().max(255), phone: z.string().max(50).regex(/^[+0-9() .-]*$/).optional() };
@@ -67,7 +68,11 @@ export const ownersController = {
       const input = z.object({ ...Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value.optional()])), status: z.enum(['ACTIVE', 'INACTIVE']).optional() }).parse(req.body);
       const owner = await BusinessOwner.findByIdAndUpdate(req.params.id, { $set: input }, { new: true, runValidators: true });
       if (!owner) throw Object.assign(new Error('Business owner not found'), { status: 404 });
-      if (owner.status === 'INACTIVE') await ownerInviteService.invalidateSessions(owner._id);
+      if (owner.status === 'INACTIVE') {
+        await ownerInviteService.invalidateSessions(owner._id);
+        const organizationIds = await Organization.find({ ownerId: owner._id }).distinct('_id');
+        await invalidateStudentSessionsByOrganizations(organizationIds);
+      }
       return apiResponse(res, { data: await populated(owner) });
     } catch (error) { next(error); }
   },
@@ -107,6 +112,8 @@ export const ownersController = {
       const owner = await BusinessOwner.findById(req.params.id);
       if (!owner) throw Object.assign(new Error('Business owner not found'), { status: 404 });
       await ownerInviteService.invalidateSessions(owner._id);
+      const organizationIds = await Organization.find({ ownerId: owner._id }).distinct('_id');
+      await invalidateStudentSessionsByOrganizations(organizationIds);
       await Organization.updateMany({ ownerId: owner._id }, { $set: { ownerId: null } });
       await owner.deleteOne();
       return apiResponse(res, { message: 'Business owner deleted' });

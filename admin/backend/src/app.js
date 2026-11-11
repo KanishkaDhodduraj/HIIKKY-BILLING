@@ -17,10 +17,11 @@ import notificationsRoutes from './modules/notifications/notifications.routes.js
 import reportsRoutes from './modules/reports/reports.routes.js';
 import gatewaysRoutes from './modules/gateways/gateways.routes.js';
 import plansRoutes from './modules/plans/plans.routes.js';
+import studentsRoutes from './modules/students/students.routes.js';
 
 export function createApp({ sessionStore } = {}) {
   const app = express(); app.disable('x-powered-by');
-  app.use(cors({ origin: env.clientOrigin, credentials: true, allowedHeaders: ['Content-Type', 'X-CSRF-TOKEN', 'X-Admin-Bootstrap-Secret'] }));
+  app.use(cors({ origin: [env.clientOrigin, env.ownerClientOrigin].filter(Boolean), credentials: true, allowedHeaders: ['Content-Type', 'X-CSRF-TOKEN', 'X-Admin-Bootstrap-Secret'], exposedHeaders: ['X-Total-Count', 'X-Page-Number', 'X-Page-Size'] }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(session({ name: 'hiikky.sid', secret: env.sessionSecret || 'development-only-secret-replace-before-use', resave: false, saveUninitialized: false, store: sessionStore || (env.mongoUri ? MongoStore.create({ mongoUrl: env.mongoUri, collectionName: 'sessions' }) : undefined), cookie: { httpOnly: true, sameSite: 'lax', secure: env.nodeEnv === 'production', maxAge: 8 * 60 * 60 * 1000 } }));
@@ -38,6 +39,7 @@ export function createApp({ sessionStore } = {}) {
   app.use('/api/admin/reports', reportsRoutes);
   app.use('/api/admin/gateways', gatewaysRoutes);
   app.use('/api/admin/plans', plansRoutes);
+  app.use('/api/admin/students', studentsRoutes);
   app.use('/api/organization-registration-applications', businessRequestsPublicRoutes);
   app.use(notFound); app.use(errorHandler); return app;
 }
