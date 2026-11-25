@@ -16,6 +16,12 @@ export function AuthProvider({ children }) {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    const requirePasswordChange = () => setUser((current) => current ? { ...current, passwordChangeRequired: true } : current);
+    window.addEventListener('student-password-change-required', requirePasswordChange);
+    return () => window.removeEventListener('student-password-change-required', requirePasswordChange);
+  }, []);
+
   const value = useMemo(() => ({
     user,
     loading,

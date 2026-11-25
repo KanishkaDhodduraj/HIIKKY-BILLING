@@ -12,6 +12,8 @@ export const env = {
   smtpSecure: process.env.SMTP_SECURE === 'true',
   smtpUser: process.env.SMTP_USER,
   smtpPassword: process.env.SMTP_PASSWORD,
+  studentPortalUrl: process.env.STUDENT_PORTAL_URL || 'http://localhost:5175/student/login',
+  ownerStudentOutboxPath: process.env.OWNER_STUDENT_DEV_OUTBOX || '.dev-outbox.jsonl',
   passwordResetBaseUrl: process.env.PASSWORD_RESET_BASE_URL || 'http://localhost:5174/owner/set-password',
   timezone: process.env.APP_TIMEZONE || 'Asia/Calcutta',
   settingsEncryptionKey: process.env.SETTINGS_ENCRYPTION_KEY,

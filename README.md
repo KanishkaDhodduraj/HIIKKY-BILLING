@@ -8,7 +8,7 @@ HIIKKY provides separate Admin, Business Owner, and Student portals. All three A
 - A MongoDB replica set; invoice payments, approval, and course assignment use transactions.
 - Configure all three backend `.env` files with the same `MONGODB_URI` and distinct random `SESSION_SECRET` values (at least 32 characters).
 - The Student API uses sandbox payments only. No live payment credentials are required.
-- Configure SMTP for delivered mail. In development without SMTP, owner/student invitation links are written to the relevant backend console.
+- Configure SMTP for delivered mail. Set `STUDENT_PORTAL_URL` in `owner/backend/.env` to the Student login URL. In development without SMTP, invitation emails are printed by the Owner API and written to `owner/backend/.dev-outbox.jsonl`; Student password/reset emails are written to `student/backend/.dev-outbox.jsonl`.
 
 ## Projects and ports
 
@@ -39,6 +39,7 @@ The Admin bootstrap endpoint is `POST /api/admin/setup/first-super-admin`; set `
 
 - Admin manages organizations and owners, sees student counts and reports, and can block/unblock student access. Deactivating an owner or organization removes student sessions.
 - The Owner portal manages students and registrations, plans, courses, invoices, and notifications. Student accounts are Owner Subscribers; no duplicate student identity table is used.
+- Owner-created Students receive a 72-hour temporary password by email, sign in, and must set a new password before using the portal. Owners can resend an unclaimed invitation or reset an active Student's password; students can use the 30-minute forgot-password email flow.
 - Students see only their own organization-scoped data. Invoice payment uses a sandbox adapter, creates a Payment record, and updates the shared invoice in a MongoDB transaction. Owner billing and Admin payment reports read those same records.
 - Course assignments support progress tracking. All published organization courses are unlocked for students. Automatic recurring charges are not scheduled; Auto Pay records a preference and clearly indicates this limitation.
 
@@ -71,3 +72,5 @@ Set-Location owner/frontend; npm run build
 Set-Location admin/backend; npm test
 Set-Location admin/frontend; npm run build
 ```
+
+The shared-stack invitation browser flow is available with `npm run test:e2e` from `student/frontend`. Set `E2E_OWNER_EMAIL` and `E2E_OWNER_PASSWORD`, run all six apps against the same development MongoDB replica set, and use the development Owner email outbox.

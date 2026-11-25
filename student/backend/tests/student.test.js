@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
+import { readFile, rm } from 'node:fs/promises';
+import path from 'node:path';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createApp } from '../src/app.js';
 import BusinessOwner from '../src/models/BusinessOwner.js';
@@ -12,6 +14,9 @@ import Course from '../src/models/Course.js';
 import Billing from '../src/models/Billing.js';
 import Payment from '../src/models/Payment.js';
 import BillingNotification from '../src/models/BillingNotification.js';
+import AuditLog from '../src/models/AuditLog.js';
+import LoginThrottle from '../src/models/LoginThrottle.js';
+import { env } from '../src/config/env.js';
 
 let repl;
 let server;
@@ -27,7 +32,7 @@ beforeAll(async () => {
 }, 120000);
 
 afterEach(async () => {
-  for (const Model of [BusinessOwner, Organization, Subscriber, Subscription, Course, Billing, Payment]) await Model.deleteMany({});
+  for (const Model of [BusinessOwner, Organization, Subscriber, Subscription, Course, Billing, Payment, AuditLog, LoginThrottle]) await Model.deleteMany({});
 });
 
 afterAll(async () => {
@@ -192,4 +197,144 @@ test('every authenticated request rechecks student, organization, and owner stat
   expect(result.status).toBe(200);
   await BusinessOwner.updateOne({ _id: owner._id }, { $set: { status: 'INACTIVE' } });
   expect((await studentAgent.get('/api/student/dashboard')).status).toBe(401);
+});
+
+test('temporary password login is gated until password change, which rotates the session', async () => {
+  const { student } = await setup();
+  const temporaryPassword = 'Temp-Login-482!';
+  student.mustChangePassword = true;
+  student.tempPasswordIssuedAt = new Date();
+  student.tempPasswordExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+  student.passwordHash = await bcrypt.hash(temporaryPassword, 12);
+  student.inviteStatus = 'INVITED';
+  await student.save();
+
+  const originalOutbox = env.studentDevOutboxPath;
+  const outboxPath = '.student-password-change-test-outbox.jsonl';
+  env.studentDevOutboxPath = outboxPath;
+  const agent = request.agent(server);
+  const token = await csrf(agent);
+  try {
+    const loginResponse = await agent.post('/api/student/auth/login').set('X-CSRF-TOKEN', token).send({ email: student.email, password: temporaryPassword });
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body.data.passwordChangeRequired).toBe(true);
+    expect((await agent.get('/api/student/auth/me')).body.data.passwordChangeRequired).toBe(true);
+    const gated = await agent.get('/api/student/dashboard');
+    expect(gated.status).toBe(403);
+    expect(gated.body.code).toBe('PASSWORD_CHANGE_REQUIRED');
+    expect((await agent.get('/api/student/profile')).body.code).toBe('PASSWORD_CHANGE_REQUIRED');
+
+    const sessions = mongoose.connection.collection('student_sessions');
+    const cookieId = (response) => response.headers['set-cookie']?.find((cookie) => cookie.startsWith('hiikky.student.sid='))?.split(';')[0];
+    const originalSessionCookie = cookieId(loginResponse);
+    expect(originalSessionCookie).toBeTruthy();
+    await sessions.insertOne({
+      _id: 'second-login-session',
+      session: JSON.stringify({ cookie: {}, student: { id: String(student._id), organizationId: String(organization._id) } }),
+      expires: new Date(Date.now() + 60_000),
+    });
+
+    const changeRequest = () => agent.post('/api/student/auth/change-password').set('X-CSRF-TOKEN', loginResponse.body.data.csrfToken);
+    const samePassword = await changeRequest().send({
+      currentPassword: temporaryPassword, newPassword: temporaryPassword, confirmPassword: temporaryPassword,
+    });
+    expect(samePassword.status).toBe(400);
+    const commonPassword = await changeRequest().send({
+      currentPassword: temporaryPassword, newPassword: 'password123', confirmPassword: 'password123',
+    });
+    expect(commonPassword.status).toBe(400);
+    const emailPassword = await changeRequest().send({
+      currentPassword: temporaryPassword, newPassword: student.email, confirmPassword: student.email,
+    });
+    expect(emailPassword.status).toBe(400);
+    const invalidCurrent = await changeRequest().send({
+      currentPassword: 'wrong-current-password', newPassword: 'Better-Student-Pass-482!', confirmPassword: 'Better-Student-Pass-482!',
+    });
+
+    expect(invalidCurrent.status).toBe(401);
+
+    const changed = await changeRequest().send({
+      currentPassword: temporaryPassword, newPassword: 'Better-Student-Pass-482!', confirmPassword: 'Better-Student-Pass-482!',
+    });
+    expect(changed.status).toBe(200);
+    expect(changed.body.data.passwordChangeRequired).toBe(false);
+    expect(changed.body.data.csrfToken).toBeTruthy();
+    expect(cookieId(changed)).not.toBe(originalSessionCookie);
+    expect(await sessions.findOne({ _id: 'second-login-session' })).toBeNull();
+    expect((await agent.get('/api/student/dashboard')).status).toBe(200);
+
+    const stored = await Subscriber.findById(student._id).select('+passwordHash');
+    expect(stored.mustChangePassword).toBe(false);
+    expect(stored.tempPasswordExpiresAt).toBeNull();
+    expect(stored.inviteStatus).toBe('ACTIVE');
+    expect(await bcrypt.compare(temporaryPassword, stored.passwordHash)).toBe(false);
+    expect(await AuditLog.exists({ studentId: student._id, action: 'student.password.changed' })).toBeTruthy();
+    expect((await readFile(path.resolve(outboxPath), 'utf8')).toLowerCase()).toContain('password changed');
+  } finally {
+    env.studentDevOutboxPath = originalOutbox;
+    await rm(path.resolve(outboxPath), { force: true });
+  }
+});
+
+test('unknown email and wrong password return identical login errors', async () => {
+  const { student } = await setup();
+  const agent = request.agent(server);
+  const token = await csrf(agent);
+  const unknown = await agent.post('/api/student/auth/login').set('X-CSRF-TOKEN', token).send({ email: 'missing@student.test', password: 'some-password' });
+  const wrong = await agent.post('/api/student/auth/login').set('X-CSRF-TOKEN', token).send({ email: student.email, password: 'wrong-password' });
+  expect(unknown.status).toBe(401);
+  expect(wrong.status).toBe(401);
+  expect(unknown.body.message).toBe(wrong.body.message);
+});
+
+test('expired temporary passwords receive the resend instruction', async () => {
+  const { student } = await setup();
+  student.mustChangePassword = true;
+  student.tempPasswordExpiresAt = new Date(Date.now() - 1_000);
+  student.passwordHash = await bcrypt.hash('Expired-Temp-Password!', 12);
+  await student.save();
+  const agent = request.agent(server);
+  const token = await csrf(agent);
+  const response = await agent.post('/api/student/auth/login').set('X-CSRF-TOKEN', token).send({ email: student.email, password: 'Expired-Temp-Password!' });
+  expect(response.status).toBe(401);
+  expect(response.body.message).toBe('Your temporary password has expired. Ask your organisation to resend the invitation.');
+});
+
+test('ten consecutive bad passwords lock the account and persist the IP throttle', async () => {
+  const { student } = await setup();
+  const agent = request.agent(server);
+  const token = await csrf(agent);
+  let response;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    response = await agent.post('/api/student/auth/login').set('X-CSRF-TOKEN', token).send({ email: student.email, password: 'incorrect-password' });
+    expect(response.status).toBe(401);
+    expect(response.body.message).toBe('Unable to sign in. Check your credentials or account status.');
+  }
+  const stored = await Subscriber.findById(student._id);
+  expect(stored.failedLoginCount).toBe(10);
+  expect(stored.lockedUntil.getTime()).toBeGreaterThan(Date.now());
+  expect(await LoginThrottle.countDocuments({ attempts: 10 })).toBe(1);
+  expect(await AuditLog.exists({ studentId: student._id, action: 'student.login.lockout' })).toBeTruthy();
+  expect((await agent.post('/api/student/auth/login').set('X-CSRF-TOKEN', token).send({ email: student.email, password: 'incorrect-password' })).status).toBe(429);
+}, 30000);
+
+test('forgot password stores a hashed single-use token with a 30-minute expiry', async () => {
+  const { student } = await setup();
+  const originalOutbox = env.studentDevOutboxPath;
+  const outboxPath = '.student-forgot-password-test-outbox.jsonl';
+  env.studentDevOutboxPath = outboxPath;
+  const agent = request.agent(server);
+  const token = await csrf(agent);
+  try {
+    const response = await agent.post('/api/student/auth/forgot-password').set('X-CSRF-TOKEN', token).send({ email: student.email });
+    expect(response.status).toBe(200);
+    const stored = await Subscriber.findById(student._id).select('+setPasswordTokenHash');
+    expect(stored.setPasswordTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(stored.setPasswordTokenExpiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * 60 * 1000);
+    expect(stored.setPasswordTokenExpiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 30 * 60 * 1000);
+    expect((await readFile(path.resolve(outboxPath), 'utf8')).trim()).toContain('token=');
+  } finally {
+    env.studentDevOutboxPath = originalOutbox;
+    await rm(path.resolve(outboxPath), { force: true });
+  }
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, BookOpenCheck } from 'lucide-react';
-import { api, dataOf } from '../api/client';
+import { ArrowRight, BookOpenCheck, Eye, EyeOff } from 'lucide-react';
+import { api, dataOf, setCsrfToken } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Button, FormField, SelectField } from '../components/shared';
 
@@ -22,6 +22,8 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError(''); setFieldErrors({});
     try { await login(form); navigate('/student/dashboard', { replace: true }); }
@@ -31,12 +33,79 @@ export function LoginPage() {
   return <AuthShell title="Welcome back" description="Sign in to continue to your learning dashboard." footer={<>New to this organization? <Link className="font-bold text-brand-700" to="/student/register">Create an account</Link></>}>
     <form onSubmit={submit} className="grid gap-4">
       {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>}
-      <FormField label="Email address" type="email" autoComplete="email" required value={form.email} error={fieldErrors.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
-      <FormField label="Password" type="password" autoComplete="current-password" required value={form.password} error={fieldErrors.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+      <FormField label="Email address" type="email" autoComplete="username" required value={form.email} error={fieldErrors.email} onChange={(event) => { setError(''); setFieldErrors({}); setForm({ ...form, email: event.target.value }); }} />
+      <div className="relative"><FormField label="Password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={form.password} error={fieldErrors.password} onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))} onBlur={() => setCapsLock(false)} onChange={(event) => { setError(''); setFieldErrors({}); setForm({ ...form, password: event.target.value }); }} /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-7 grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-slate-100">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>{capsLock && <p role="status" className="mt-1 text-[10px] font-medium text-amber-700">Caps Lock is on.</p>}</div>
       <div className="-mt-2 text-right"><Link to="/student/forgot-password" className="text-[11px] font-semibold text-brand-700 hover:underline">Forgot password?</Link></div>
       <Button disabled={busy} className="mt-1 h-11">{busy ? 'Signing in…' : <>Sign in <ArrowRight size={14} /></>}</Button>
       <p className="text-center text-[10px] leading-4 text-muted">Your account must be approved by your organization before you can sign in.</p>
     </form>
+  </AuthShell>;
+}
+
+const commonPasswordExamples = [
+  '1234567890', 'password1', 'password123', 'qwerty123', 'letmein123', 'welcome123',
+  'admin12345', 'iloveyou1', 'abc1234567', 'student123', 'changeme123', 'football1',
+  'baseball1', 'monkey123', 'dragon123', 'sunshine1', 'princess1', 'trustno1',
+  'passw0rd', 'password!', 'password1!', 'qwertyuiop', '123456789012',
+];
+const passwordRules = (password, currentPassword, user) => [
+  { label: 'At least 10 characters', valid: password.length >= 10 },
+  { label: 'Different from your temporary password', valid: Boolean(password) && password !== currentPassword },
+  { label: 'Not your name or email', valid: Boolean(password) && password.toLowerCase() !== user.fullName?.trim().toLowerCase() && password.toLowerCase() !== user.email?.toLowerCase() },
+  { label: 'Not a commonly used password', valid: Boolean(password) && !commonPasswordExamples.includes(password.toLowerCase()) },
+];
+
+export function PasswordChangePage() {
+  const { user, setUser } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [success, setSuccess] = useState('');
+  const [busy, setBusy] = useState(false);
+  const rules = [
+    ...passwordRules(form.newPassword, form.currentPassword, user || {}),
+    { label: 'New passwords match', valid: Boolean(form.confirmPassword) && form.confirmPassword === form.newPassword },
+  ];
+  const strength = Math.min(4, [
+    form.newPassword.length >= 10,
+    form.newPassword.length >= 14,
+    /[a-z]/.test(form.newPassword) && /[A-Z]/.test(form.newPassword),
+    /\d/.test(form.newPassword) || /[^A-Za-z0-9]/.test(form.newPassword),
+  ].filter(Boolean).length);
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true); setError(''); setFieldErrors({});
+    try {
+      const response = await api.post('/auth/change-password', form);
+      const data = dataOf(response);
+      setCsrfToken(data?.csrfToken);
+      setSuccess(data?.confirmationEmailSent === false ? 'Password updated. The confirmation email could not be sent.' : 'Your password is updated. Redirecting to your dashboard…');
+      window.setTimeout(() => {
+        setUser(data);
+        navigate('/student/dashboard', { replace: true });
+      }, 1000);
+    } catch (failure) {
+      setError(messageOf(failure));
+      setFieldErrors(fieldErrorsOf(failure));
+    } finally { setBusy(false); }
+  }
+
+  return <AuthShell title="Set your new password" description="For your security, choose a new password before continuing to the student portal.">
+    {success ? <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm font-semibold text-emerald-900">{success}</div> : <form onSubmit={submit} className="grid gap-4">
+      {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">{error}</div>}
+      <FormField label="Temporary password" type="password" autoComplete="current-password" required value={form.currentPassword} error={fieldErrors.currentPassword} onChange={(event) => { setError(''); setFieldErrors({}); setForm({ ...form, currentPassword: event.target.value }); }} />
+      <div className="relative"><FormField label="New password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={10} required value={form.newPassword} error={fieldErrors.newPassword} onChange={(event) => { setError(''); setFieldErrors({}); setForm({ ...form, newPassword: event.target.value }); }} /><button type="button" aria-label={showPassword ? 'Hide new password' : 'Show new password'} onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-7 grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-slate-100">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+      <div aria-label={`Password strength ${strength} of 4`} className="grid grid-cols-4 gap-1">{[1, 2, 3, 4].map((level) => <span key={level} className={`h-1.5 rounded-full ${strength >= level ? strength < 2 ? 'bg-red-400' : strength < 4 ? 'bg-amber-400' : 'bg-emerald-500' : 'bg-slate-200'}`} />)}</div>
+      <ul className="grid gap-2 rounded-xl bg-slate-50 p-3 text-[11px]">
+        {rules.map((rule) => <li key={rule.label} className={rule.valid ? 'text-emerald-700' : 'text-muted'}><span aria-hidden="true" className="mr-2">{rule.valid ? '✓' : '○'}</span>{rule.label}</li>)}
+      </ul>
+      <FormField label="Confirm new password" type="password" autoComplete="new-password" minLength={10} required value={form.confirmPassword} error={fieldErrors.confirmPassword} onChange={(event) => { setError(''); setFieldErrors({}); setForm({ ...form, confirmPassword: event.target.value }); }} />
+      <Button disabled={busy || rules.some((rule) => !rule.valid) || !form.confirmPassword || form.confirmPassword !== form.newPassword} className="min-h-12">{busy ? 'Updating password…' : 'Set password and continue'}</Button>
+      <p className="text-center text-[10px] leading-4 text-muted">You’ll be signed out of other student sessions after changing your password.</p>
+    </form>}
   </AuthShell>;
 }
 

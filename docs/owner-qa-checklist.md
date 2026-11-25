@@ -4,7 +4,8 @@
 
 - [x] Owner frontend production build (`npm run build`)
 - [x] Owner backend Jest suite covers auth, expired/one-use password tokens, and tenant scoping
-- [x] Owner student/auth/billing suites pass (15 tests); student create/invite, approval/rejection, scoped assignments, payments, and notification API are covered.
+- [x] Owner backend suites pass (23 tests); student create/invite, email-failure handling, resend/reset, CSV, approval/rejection, scoped assignments, payments, and notification API are covered.
+- [x] Student creation tests cover invite on/off, no password in owner responses, email failure persistence, resend invalidation/5-per-day cap, CSV row outcomes, and tenant 404s.
 - [x] Owner student management page includes search/filter/CSV, create/resend invitation, registration decisions, plan/course assignment, payment visibility, notifications, activate/deactivate, and confirmed delete.
 - [x] `git diff --check`
 - [x] Registration is pending until Admin approval; password is set through the invitation flow.
@@ -25,7 +26,10 @@ MongoDB must be running as a replica set and both APIs must use the same `MONGOD
 - [ ] Verify duplicate submission returns 409, invalid email/upload returns 400, oversized upload returns 413, and rate limit returns 429.
 - [ ] Verify the owner dashboard and all list/detail operations are scoped to that owner’s organization.
 - [ ] Create a customer, course, course installment, subscription plan, discount, invoice, and queued notification; confirm each appears in the respective table.
-- [ ] Create/invite a Student, approve/reject a self-registration with required reason, resend an invitation, and verify password links are hashed, one-time, and expire within 48 hours.
+- [ ] Create a Student with and without invitation; read the development email from `owner/backend/.dev-outbox.jsonl`; log in with the temporary password; verify first-login password change is mandatory before reaching the dashboard.
+- [ ] Verify `INVITE_FAILED` after provider failure, resend creates a new password and invalidates the old password, the rolling 24-hour limit is five, and active-student reset requires a new password.
+- [ ] Import CSV with created, duplicate, invalid, and email-failed rows; verify the per-row report and 500-row cap.
+- [ ] Approve/reject a self-registration with required reason and confirm its legacy one-time set-password link remains hashed, one-time, and expires within 48 hours.
 - [ ] Assign a plan and published courses; verify all published courses are unlocked in Student while assignment progress remains scoped.
 - [ ] Check Student payments in the Owner view; verify Student-generated sandbox payments update the shared invoice.
 - [ ] Confirm CSV downloads and pagination in the browser.

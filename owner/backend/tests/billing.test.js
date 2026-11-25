@@ -31,6 +31,17 @@ async function setup() {
   return { organization, subscription, subscriber, discount, agent, csrfToken: login.body.data.csrfToken };
 }
 
+test('subscription plans can only be deleted when no records use them', async () => {
+  const { organization, subscription, agent, csrfToken } = await setup();
+  const referenced = await agent.delete(`/api/owner/subscriptions/${subscription._id}`).set('X-CSRF-TOKEN', csrfToken);
+  expect(referenced.status).toBe(409);
+
+  const unused = await Subscription.create({ organizationId: organization._id, planName: 'Unused', price: 100, billingCycle: 'MONTHLY' });
+  const deleted = await agent.delete(`/api/owner/subscriptions/${unused._id}`).set('X-CSRF-TOKEN', csrfToken);
+  expect(deleted.status).toBe(200);
+  expect(await Subscription.findById(unused._id)).toBeNull();
+});
+
 test('invoice generation applies scoped discounts, payment marking, and queues reminders', async () => {
   const { agent, csrfToken, subscriber, subscription, discount } = await setup();
   const generated = await agent.post('/api/owner/invoices').set('X-CSRF-TOKEN', csrfToken).send({ subscriberId: String(subscriber._id), subscriptionId: String(subscription._id), paymentName: 'June subscription', dueDate: '2026-11-30', discountCode: 'save10' });

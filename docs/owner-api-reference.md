@@ -11,7 +11,7 @@ The Owner API runs on port `5001`, uses `/api/owner`, and shares Admin's MongoDB
 - `GET /api/organization-registration-applications/:id/status` provides a reference-based status check with PENDING/APPROVED/REJECTED status and rejection reason; it never exposes owner email. Rejected applicants may resubmit.
 - Admin-issued set-password tokens are stored hashed and expire after 48 hours. Expired and used tokens are rejected. Login requires an ACTIVE owner and an active linked organization.
 
-All POST, PUT, PATCH, and DELETE requests require the `X-CSRF-TOKEN` header. Owner and Admin session cookies are separate, credentialed, `SameSite=Lax`, and `Secure` in production. The Admin API allows both local frontend origins (`http://localhost:5173` and `http://localhost:5174`). SMTP delivery uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, optional `SMTP_USER`/`SMTP_PASSWORD`, and `MAIL_FROM`; development without SMTP logs links to the console.
+All POST, PUT, PATCH, and DELETE requests require the `X-CSRF-TOKEN` header. Owner and Admin session cookies are separate, credentialed, `SameSite=Lax`, and `Secure` in production. The Admin API allows both local frontend origins (`http://localhost:5173` and `http://localhost:5174`). SMTP delivery uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, optional `SMTP_USER`/`SMTP_PASSWORD`, and `MAIL_FROM`. Owner-created student invitations use `STUDENT_PORTAL_URL` (defaults to `http://localhost:5175/student/login`). Without SMTP, development writes email messages to `owner/backend/.dev-outbox.jsonl` and prints invitation email text to the backend console. The outbox is development-only and ignored by Git.
 
 ## Workspace APIs
 
@@ -40,10 +40,12 @@ The Owner student APIs operate on the existing `Subscriber` collection and are s
 | `GET /students/registrations` | Pending self-registration applications by default; accepts the same pagination/search filters. |
 | `GET /students/export.csv` | CSV of the filtered student list; limited to 10,000 rows. |
 | `GET /students/:id` | Scoped student detail; 404 outside the Owner's organization. |
-| `POST /students` | Create an active student and send a password invitation; accepts `fullName`, `email`, optional `phone`, and optional active `subscriptionId`. |
+| `POST /students` | Create an active student; accepts `name` (or legacy `fullName`), `email`, optional `phone`, active `subscriptionId`, published `courseIds`, and `sendInvite` (default `true`). Organization is taken from the Owner session. Emails contain a generated 12-character temporary password; only its bcrypt hash (cost 12) is stored. The password expires after 72 hours and must be changed on first login. The API never returns it. If email delivery fails, the student remains and the endpoint returns `502` with `inviteStatus: INVITE_FAILED`; use resend. |
+| `POST /students/bulk` | Import `text/csv` with a `name` (or `fullName`) and `email` header; maximum 500 data rows. Returns per-row `created`, `duplicate`, `invalid`, or `email_failed` results. |
 | `PUT /students/:id` | Update student profile, account status, or assigned plan. |
 | `PATCH /students/:id/status` | Set status to `ACTIVE`, `TRIALING`, `SUSPENDED`, or `INACTIVE`. Deactivation invalidates Student sessions. |
-| `POST /students/:id/invite`, `POST /students/:id/resend-invite` | Send a new one-time password link; only its hash is stored; links expire in 48 hours. |
+| `POST /students/:id/invite`, `POST /students/:id/resend-invite` | Resend an invitation only before the student changes their password. A new temporary password invalidates the previous one. Maximum five invitation issues per student in a rolling 24-hour period. |
+| `POST /students/:id/reset-password` | For an active student, issue a new temporary password and require a change at the next login. Existing sessions are invalidated. |
 | `PATCH /students/:id/approve` | Approve a pending self-registration and issue the set-password invitation. |
 | `PATCH /students/:id/reject` | Reject a pending registration with a required `reason`. |
 | `GET /students/:id/courses`, `PUT /students/:id/courses` | Read or replace progress-tracking course assignments. Input is `{courseIds:[...]}`; only published courses from the Owner's organization are accepted. Published courses remain unlocked to all students. |
@@ -51,7 +53,9 @@ The Owner student APIs operate on the existing `Subscriber` collection and are s
 | `POST /students/:id/notifications` | Queue an individual student notification; accepts `subject`, `message`, and optional `notificationType`. |
 | `DELETE /students/:id` | Remove the student account and access sessions while retaining invoice/payment history. |
 
-`GET /students` response rows include `id`, `organizationId`, contact details, status, registration review reason, `subscriptionId`, `planName`, `inviteStatus`, and lifecycle dates. Invitation tokens and password hashes are never returned.
+`GET /students` response rows include `id`, `organizationId`, contact details, status, registration review reason, `subscriptionId`, `planName`, `inviteStatus` (`INVITED`, `ACTIVE`, `INVITE_FAILED`, `EXPIRED`, or `not_invited`), `mustChangePassword`, `inviteSentAt`, `inviteCount`, and lifecycle dates. Invitation tokens, temporary passwords, and password hashes are never returned. Self-registrations approved by an Owner retain the existing one-time set-password-link flow.
+
+Student email is sent from `MAIL_FROM` using the configured authenticated SMTP provider; tracking links are not added. Audit events record student creation, invitation issuance/success/failure, and owner password resets with actor, organization/student, timestamp, and IP. New student emails are unique across the platform. Before deploying the new global `email` unique index, resolve any existing duplicate addresses across organizations and remove the old `organizationId_1_email_1` index if MongoDB retains it after schema startup.
 
 ## Current service boundaries
 

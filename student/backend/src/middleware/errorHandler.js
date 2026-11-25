@@ -12,5 +12,5 @@ export function errorHandler(error, _req, res, _next) {
   }
   if (error?.code === 11000) return apiError(res, { status: 409, message: 'A record with that value already exists' });
   const status = Number.isInteger(error?.status) ? error.status : 500;
-  return apiError(res, { status, message: status === 500 ? 'An unexpected error occurred' : error.message, fieldErrors: error.fieldErrors || null });
+  return apiError(res, { status, message: status === 500 ? 'An unexpected error occurred' : error.message, fieldErrors: error.fieldErrors || null, code: error.code || null });
 }

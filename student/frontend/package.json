@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5175",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5175"
+    "preview": "vite preview --host 0.0.0.0 --port 5175",
+    "test:e2e": "playwright test e2e/student-invitation.spec.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
@@ -20,6 +21,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "@playwright/test": "^1.52.0"
   }
 }

@@ -1,8 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute, { StudentRouteGate } from './components/ProtectedRoute';
 import StudentLayout from './layouts/StudentLayout';
-import { LoginPage, PasswordLinkPage, RegisterPage, RegistrationSubmittedPage } from './pages/AuthPages';
+import { LoginPage, PasswordChangePage, PasswordLinkPage, RegisterPage, RegistrationSubmittedPage } from './pages/AuthPages';
 import DashboardPage from './pages/DashboardPage';
 import { CourseDetailPage, CoursesPage } from './pages/CoursesPage';
 import { InvoicesPage, PaymentsPage } from './pages/BillingPages';
@@ -10,9 +10,10 @@ import { AutoPayPage, AutoRenewPage, NotificationsPage, ProfilePage } from './pa
 import SubscriptionPage from './pages/SubscriptionPage';
 
 export default function App() {
-  return <BrowserRouter><AuthProvider><Routes>
+  return <BrowserRouter><AuthProvider><Routes><Route element={<StudentRouteGate />}>
     <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
     <Route path="/student/login" element={<LoginPage />} />
+    <Route path="/student/change-password" element={<PasswordChangePage />} />
     <Route path="/student/register" element={<RegisterPage />} />
     <Route path="/student/register/submitted" element={<RegistrationSubmittedPage />} />
     <Route path="/student/set-password" element={<PasswordLinkPage reset />} />
@@ -34,5 +35,5 @@ export default function App() {
       </Route>
     </Route>
     <Route path="*" element={<Navigate to="/student/dashboard" replace />} />
-  </Routes></AuthProvider></BrowserRouter>;
+  </Route></Routes></AuthProvider></BrowserRouter>;
 }

@@ -9,18 +9,21 @@ All responses use `{success,message,data,timestamp,fieldErrors}`. Validation err
 | Method and path | Access | Behavior |
 | --- | --- | --- |
 | `GET /auth/csrf` | Public | Issues a CSRF token and cookie. |
-| `POST /auth/login` | Public + CSRF | `{email,password,organizationId?}`. Ten failed logins per address per 15 minutes returns 429. Login requires an approved, active student and active organization and owner. |
+| `POST /auth/login` | Public + CSRF | `{email,password,organizationId?}`. Unknown emails and wrong passwords share a generic error; MongoDB-backed IP throttling has a 15-minute TTL, and ten consecutive account failures lock the account for 15 minutes. Requires an approved, active student and active organization and owner. A valid temporary password creates a session marked `passwordChangeRequired`; an expired one returns `Your temporary password has expired. Ask your organisation to resend the invitation.` |
 | `POST /auth/logout` | Student + CSRF | Destroys the Student session and expires its cookies. |
-| `GET /auth/me` | Student | Returns the current Student profile. |
+| `GET /auth/me` | Student | Returns the current Student profile, including `passwordChangeRequired`; allowed while a password change is required. |
+| `POST /auth/change-password` | Student + CSRF | `{currentPassword,newPassword,confirmPassword}`. Requires at least 10 characters, a non-reused password different from the temporary password, name, and email, and rejects a bundled common-password list. On success clears temporary-password fields, marks the invitation `ACTIVE`, rotates the current session, deletes other student sessions, and sends a password-changed email. |
 | `GET /profile` | Student | Returns safe profile fields. |
 | `PATCH /profile` | Student + CSRF | Requires `currentPassword`; can update `fullName`, `email`, `phone`, `avatarData`, `emailNotificationsEnabled`, and `newPassword`. Passwords require 12..72 characters. |
 | `GET /registration/organizations` | Public | Lists names and IDs of organizations whose organization and owner are ACTIVE. |
 | `POST /registration` | Public + CSRF | `{organizationId,fullName,email,phone?}`; creates a PENDING student application. Ten attempts per address per 15 minutes returns 429. |
-| `POST /auth/forgot-password` | Public + CSRF | `{email}`; returns a generic success message to avoid account discovery. |
-| `POST /auth/set-password` | Public + CSRF | `{token,password}`; consumes a one-time invitation/reset token. |
+| `POST /auth/forgot-password` | Public + CSRF | `{email}`; returns a generic success message to avoid account discovery and sends a single-use hashed-token link expiring in 30 minutes. |
+| `POST /auth/set-password` | Public + CSRF | `{token,password}`; consumes a one-time invitation/reset token. Forgot-password tokens expire in 30 minutes; legacy self-registration invitation tokens expire in 48 hours. |
 | `POST /auth/reset-password` | Public + CSRF | Alias for the one-time token password setter. |
 
-Invitation/reset token hashes are persisted; raw tokens are never returned by Student APIs. Owner invitations expire after 48 hours. Login and every authenticated request re-check the Student, organization, and owner statuses; invalid sessions are destroyed.
+Invitation/reset token hashes are persisted; raw tokens are never returned by Student APIs. Owner-created temporary passwords expire after 72 hours and are bcrypt-hashed. Login and every authenticated request re-check the Student, organization, and owner statuses; invalid sessions are destroyed. Until a required change succeeds, every other protected Student API returns `403` with code `PASSWORD_CHANGE_REQUIRED`; logout and `GET /auth/me` remain available. Deactivated organization/student sessions are removed.
+
+Auth request bodies are not logged. The Student development mail outbox is `student/backend/.dev-outbox.jsonl`; it is ignored by Git and must not be used in production.
 
 ## Student workspace
 

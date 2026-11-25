@@ -13,6 +13,8 @@ export const env = {
   smtpUser: process.env.SMTP_USER,
   smtpPassword: process.env.SMTP_PASSWORD,
   passwordBaseUrl: process.env.STUDENT_PASSWORD_BASE_URL || 'http://localhost:5175/student/set-password',
+  studentPortalUrl: process.env.STUDENT_PORTAL_URL || 'http://localhost:5175/student/login',
+  studentDevOutboxPath: process.env.STUDENT_DEV_OUTBOX || '.dev-outbox.jsonl',
   paymentMode: process.env.PAYMENT_MODE || 'sandbox',
 };
 

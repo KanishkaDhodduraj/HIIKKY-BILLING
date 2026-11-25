@@ -8,7 +8,7 @@ import { createOwnerService } from './ownerService.js';
 const csvCell = (value) => `"${String(value ?? '').replace(/[\r\n\t]/g, ' ').replace(/"/g, '""').replace(/^[\s\u0000-\u001f]*[=+@-]/, (match) => `'${match}`)}"`;
 const view = (record) => ({ ...record.toObject(), id: String(record._id), organizationId: String(record.organizationId) });
 
-export function createCrudModule({ Model, basePath, fields, sorts, searchFields = [], filters = ['status'], statusValues = [], beforeSave }) {
+export function createCrudModule({ Model, basePath, fields, sorts, searchFields = [], filters = ['status'], statusValues = [], beforeSave, beforeRemove }) {
   const repository = createOwnerRepository(Model);
   const service = createOwnerService(repository);
   const router = Router();
@@ -69,7 +69,7 @@ export function createCrudModule({ Model, basePath, fields, sorts, searchFields 
     } catch (error) { next(error); }
   });
   router.delete('/:id', async (req, res, next) => {
-    try { await service.remove(req, req.params.id); return apiResponse(res, { message: `${basePath} record deleted` }); }
+    try { await beforeRemove?.(req, req.params.id, repository); await service.remove(req, req.params.id); return apiResponse(res, { message: `${basePath} record deleted` }); }
     catch (error) { next(error); }
   });
   return router;

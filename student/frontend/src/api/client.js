@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5002/api/student',
+  baseURL: import.meta.env.VITE_API_URL || '/api/student',
   withCredentials: true,
 });
 
@@ -25,6 +25,10 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use((response) => response, async (error) => {
   const config = error.config;
+  if (error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED') {
+    window.dispatchEvent(new CustomEvent('student-password-change-required'));
+    return Promise.reject(error);
+  }
   if (error.response?.status === 403 && config && !config.__csrfRetried && !config.url?.includes('/auth/csrf')) {
     config.__csrfRetried = true;
     await refreshCsrf();

@@ -34,3 +34,7 @@ coverage/
 # Private Admin registration document storage
 admin/backend/private-documents/
 admin/backend/private-documents-e2e/
+owner/backend/.dev-outbox.jsonl
+student/backend/.dev-outbox.jsonl
+student/frontend/test-results/
+student/frontend/playwright-report/
